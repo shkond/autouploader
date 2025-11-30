@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autouploader"
+version = "0.1.0"
+description = "FastAPI backend for uploading videos from Google Drive to YouTube"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "autouploader", email = "autouploader@example.com"}
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "google-api-python-client>=2.111.0",
+    "google-auth>=2.26.0",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+    "python-multipart>=0.0.6",
+    "httpx>=0.26.0",
+    "python-jose[cryptography]>=3.3.0",
+    "aiosqlite>=0.19.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

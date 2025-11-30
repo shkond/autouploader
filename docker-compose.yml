@@ -1,0 +1,39 @@
+services:
+  app:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./token.json:/app/token.json:rw
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Redis for production queue (uncomment when scaling)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# volumes:
+#   redis_data:
