@@ -53,6 +53,7 @@ class SessionManager:
         """
         session_data = {
             "username": username,
+            "user_id": username,  # Use username as user_id for Simple Auth
             "created_at": int(time.time()),
         }
         return self._serializer.dumps(session_data)

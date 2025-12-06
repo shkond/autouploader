@@ -6,7 +6,8 @@ from datetime import UTC
 from typing import Any
 
 from app.config import get_settings
-from app.queue.manager import get_queue_manager
+
+# Removed: from app.queue.manager import get_queue_manager
 from app.queue.schemas import JobStatus, QueueJob
 from app.youtube.schemas import UploadProgress
 from app.youtube.service import get_youtube_service
@@ -46,26 +47,25 @@ class QueueWorker:
 
     async def _process_loop(self) -> None:
         """Main processing loop."""
-        queue_manager = get_queue_manager()
+        from app.database import get_db_context
+        from app.queue.manager_db import QueueManagerDB
 
         while self._running:
             try:
-                # Check for pending jobs
-                active_jobs = queue_manager.get_active_jobs()
-                if len(active_jobs) >= self.settings.max_concurrent_uploads:
-                    await asyncio.sleep(5)
-                    continue
+                async with get_db_context() as db:
+                    # Check for pending jobs
+                    active_jobs = await QueueManagerDB.get_active_jobs(db)
+                    if len(active_jobs) >= self.settings.max_concurrent_uploads:
+                        await asyncio.sleep(5)
+                        continue
 
-                next_job = queue_manager.get_next_pending_job()
-                if not next_job:
-                    queue_manager.set_processing(False)
-                    await asyncio.sleep(5)
-                    continue
+                    next_job = await QueueManagerDB.get_next_pending_job(db)
+                    if not next_job:
+                        await asyncio.sleep(5)
+                        continue
 
-                queue_manager.set_processing(True)
-
-                # Process the job
-                await self._process_job(next_job.id)
+                    # Process the job
+                    await self._process_job(next_job.id)
 
             except Exception:
                 logger.exception("Error in worker loop")
@@ -77,35 +77,45 @@ class QueueWorker:
         Args:
             job_id: Job UUID to process
         """
-        queue_manager = get_queue_manager()
-        job = queue_manager.get_job(job_id)
-        if not job:
-            return
+        from app.database import get_db_context
+        from app.queue.manager_db import QueueManagerDB
 
-        logger.info("Processing job %s: %s", job.id, job.drive_file_name)
+        async with get_db_context() as db:
+            job = await QueueManagerDB.get_job(db, job_id)
+            if not job:
+                return
+
+            logger.info("Processing job %s: %s", job.id, job.drive_file_name)
 
         try:
             # Update status to downloading
-            queue_manager.update_job(
-                job_id,
-                status=JobStatus.DOWNLOADING,
-                message="Starting download from Google Drive...",
-            )
+            async with get_db_context() as db:
+                await QueueManagerDB.update_job(
+                    db,
+                    job_id,
+                    status=JobStatus.DOWNLOADING,
+                    message="Starting download from Google Drive...",
+                )
 
             # Get YouTube service
             youtube_service = get_youtube_service()
 
             # Create progress callback
-            def progress_callback(progress: UploadProgress) -> None:
+            # Note: This callback is async, but upload_from_drive() expects a sync callback.
+            # The youtube service should handle the async/sync conversion internally.
+            async def progress_callback(progress: UploadProgress) -> None:
                 status = JobStatus.DOWNLOADING
                 if progress.status == "uploading":
                     status = JobStatus.UPLOADING
-                queue_manager.update_job(
-                    job_id,
-                    status=status,
-                    progress=progress.progress,
-                    message=progress.message,
-                )
+
+                async with get_db_context() as db:
+                    await QueueManagerDB.update_job(
+                        db,
+                        job_id,
+                        status=status,
+                        progress=progress.progress,
+                        message=progress.message,
+                    )
 
             # Upload from Drive to YouTube
             result = youtube_service.upload_from_drive(
@@ -114,40 +124,46 @@ class QueueWorker:
                 progress_callback=progress_callback,
             )
 
-            if result.success:
-                queue_manager.update_job(
-                    job_id,
-                    status=JobStatus.COMPLETED,
-                    progress=100,
-                    message="Upload completed successfully",
-                    video_id=result.video_id,
-                    video_url=result.video_url,
-                )
-                logger.info("Job %s completed: video_id=%s", job.id, result.video_id)
+            async with get_db_context() as db:
+                if result.success:
+                    await QueueManagerDB.update_job(
+                        db,
+                        job_id,
+                        status=JobStatus.COMPLETED,
+                        progress=100,
+                        message="Upload completed successfully",
+                        video_id=result.video_id,
+                        video_url=result.video_url,
+                    )
+                    logger.info("Job %s completed: video_id=%s", job.id, result.video_id)
 
-                # Save upload history to database
-                await self._save_upload_history(
-                    job=job,
-                    video_id=result.video_id or "",
-                    video_url=result.video_url or "",
-                )
-            else:
-                queue_manager.update_job(
-                    job_id,
-                    status=JobStatus.FAILED,
-                    message=result.message,
-                    error=result.error,
-                )
-                logger.error("Job %s failed: %s", job.id, result.error)
+                    # Save upload history to database
+                    await self._save_upload_history(
+                        job=job,
+                        video_id=result.video_id or "",
+                        video_url=result.video_url or "",
+                    )
+                else:
+                    await QueueManagerDB.update_job(
+                        db,
+                        job_id,
+                        status=JobStatus.FAILED,
+                        message=result.message,
+                        error=result.error,
+                    )
+                    logger.error("Job %s failed: %s", job.id, result.error)
 
         except Exception as e:
             logger.exception("Job %s failed with exception", job_id)
-            queue_manager.update_job(
-                job_id,
-                status=JobStatus.FAILED,
-                message="Upload failed",
-                error=str(e),
-            )
+            async with get_db_context() as db:
+                await QueueManagerDB.update_job(
+                    db,
+                    job_id,
+                    status=JobStatus.FAILED,
+                    message="Upload failed",
+                    error=str(e),
+                )
+
 
     def is_running(self) -> bool:
         """Check if the worker is running.
@@ -222,51 +238,52 @@ async def run_standalone_worker() -> None:
     """
     import signal
     import sys
-    
-    from app.database import init_db, close_db
-    
+
+    from app.database import close_db, init_db
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
+
     logger.info("Starting standalone worker process...")
-    
+
     # Initialize database
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database initialized")
-    
+
     worker = get_queue_worker()
-    
+
     # Set up signal handlers for graceful shutdown
     shutdown_event = asyncio.Event()
-    
-    def signal_handler(sig: int, frame: Any) -> None:
+
+    def signal_handler(sig: int, _frame: Any) -> None:
+        """Handle shutdown signals (SIGTERM, SIGINT)."""
         logger.info("Received signal %s, initiating graceful shutdown...", sig)
         shutdown_event.set()
-    
+
     # Register signal handlers
     if sys.platform != "win32":
         signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     try:
         # Start worker
         await worker.start()
         logger.info("Worker started, waiting for jobs...")
-        
+
         # Wait for shutdown signal
         await shutdown_event.wait()
-        
+
     except asyncio.CancelledError:
         logger.info("Worker cancelled")
     finally:
         # Graceful shutdown
         logger.info("Stopping worker...")
         await worker.stop()
-        
+
         # Close database connections
         logger.info("Closing database connections...")
         await close_db()

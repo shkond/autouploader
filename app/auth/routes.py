@@ -6,7 +6,7 @@ from fastapi import APIRouter, Cookie, Form, HTTPException, Query, Request, stat
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.auth.dependencies import check_app_auth, check_google_auth
+from app.auth.dependencies import check_app_auth, get_current_user_from_session
 from app.auth.oauth import get_oauth_service
 from app.auth.schemas import AuthStatus, UserInfo
 from app.auth.simple_auth import get_session_manager
@@ -98,13 +98,16 @@ async def dashboard_page(
     if not session_data:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
+    # Get user_id from session
+    user_id = get_current_user_from_session(session_data)
+
     # Check Google auth status
-    google_authenticated = check_google_auth()
+    oauth_service = get_oauth_service()
+    google_authenticated = await oauth_service.is_authenticated(user_id)
     google_user = None
 
     if google_authenticated:
-        oauth_service = get_oauth_service()
-        google_user = oauth_service.get_user_info()
+        google_user = await oauth_service.get_user_info(user_id)
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -118,12 +121,21 @@ async def dashboard_page(
 
 
 @router.get("/google")
-async def google_login() -> RedirectResponse:
+async def google_login(
+    session_token: str | None = Cookie(None, alias="session"),
+) -> RedirectResponse:
     """Redirect to Google OAuth authorization.
+
+    Args:
+        session_token: Session cookie (must be authenticated)
 
     Returns:
         Redirect to Google OAuth URL
     """
+    # Require app authentication first
+    if not check_app_auth(session_token):
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
     oauth_service = get_oauth_service()
     auth_url, _ = oauth_service.get_authorization_url()
     return RedirectResponse(url=auth_url, status_code=status.HTTP_303_SEE_OTHER)
@@ -145,9 +157,16 @@ async def callback(
     Returns:
         Redirect to dashboard on success
     """
+    # Get user_id from session
+    session_data = check_app_auth(session_token)
+    if not session_data:
+        return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    user_id = get_current_user_from_session(session_data)
+
     oauth_service = get_oauth_service()
     try:
-        oauth_service.exchange_code(code, state)
+        await oauth_service.exchange_code(code, user_id, state)
         return RedirectResponse(url="/auth/dashboard", status_code=status.HTTP_303_SEE_OTHER)
     except Exception as e:
         raise HTTPException(
@@ -157,18 +176,28 @@ async def callback(
 
 
 @router.get("/status", response_model=AuthStatus)
-async def auth_status() -> AuthStatus:
+async def auth_status(
+    session_token: str | None = Cookie(None, alias="session"),
+) -> AuthStatus:
     """Check current authentication status.
+
+    Args:
+        session_token: Session cookie
 
     Returns:
         AuthStatus with authentication state and user info
     """
-    oauth_service = get_oauth_service()
-
-    if not oauth_service.is_authenticated():
+    session_data = check_app_auth(session_token)
+    if not session_data:
         return AuthStatus(authenticated=False)
 
-    user_info_data = oauth_service.get_user_info()
+    user_id = get_current_user_from_session(session_data)
+    oauth_service = get_oauth_service()
+
+    if not await oauth_service.is_authenticated(user_id):
+        return AuthStatus(authenticated=False)
+
+    user_info_data = await oauth_service.get_user_info(user_id)
     user_info = None
     if user_info_data:
         user_info = UserInfo(
@@ -178,21 +207,29 @@ async def auth_status() -> AuthStatus:
             picture=user_info_data.get("picture"),
         )
 
-    creds = oauth_service.get_credentials()
+    creds = await oauth_service.get_credentials(user_id)
     scopes = list(creds.scopes) if creds and creds.scopes else []
 
     return AuthStatus(authenticated=True, user=user_info, scopes=scopes)
 
 
 @router.get("/logout")
-async def logout() -> RedirectResponse:
+async def logout(
+    session_token: str | None = Cookie(None, alias="session"),
+) -> RedirectResponse:
     """Logout and clear stored credentials.
+
+    Args:
+        session_token: Session cookie
 
     Returns:
         Redirect to login page
     """
-    oauth_service = get_oauth_service()
-    oauth_service.logout()
+    session_data = check_app_auth(session_token)
+    if session_data:
+        user_id = get_current_user_from_session(session_data)
+        oauth_service = get_oauth_service()
+        await oauth_service.logout(user_id)
 
     response = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="session")

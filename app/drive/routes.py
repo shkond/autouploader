@@ -1,8 +1,9 @@
 """Google Drive routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import check_app_auth, get_current_user_from_session
 from app.database import get_db
 from app.drive.schemas import (
     DriveFile,
@@ -13,7 +14,7 @@ from app.drive.schemas import (
     SkippedFile,
 )
 from app.drive.service import get_drive_service
-from app.queue.manager import get_queue_manager
+from app.queue.manager_db import QueueManagerDB
 from app.queue.schemas import QueueJob
 
 router = APIRouter(prefix="/drive", tags=["google-drive"])
@@ -111,6 +112,7 @@ async def get_file_info(file_id: str) -> dict:
 async def upload_folder(
     request: FolderUploadRequest,
     db: AsyncSession = Depends(get_db),
+    session_token: str | None = Cookie(None, alias="session"),
 ) -> FolderUploadResponse:
     """Upload all videos from a Drive folder to YouTube.
 
@@ -134,8 +136,16 @@ async def upload_folder(
     from app.youtube.schemas import PrivacyStatus, VideoMetadata
 
     try:
+        # Get user ID from session
+        session_data = check_app_auth(session_token)
+        if not session_data:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+        user_id = get_current_user_from_session(session_data)
+
         drive_service = get_drive_service()
-        queue_manager = get_queue_manager()
 
         # Get folder info
         if request.folder_id == "root":
@@ -165,7 +175,7 @@ async def upload_folder(
             # Check for duplicates
             if request.skip_duplicates:
                 # Check if already in queue
-                if queue_manager.is_file_id_in_queue(file_id):
+                if await QueueManagerDB.is_file_id_in_queue(db, file_id):
                     skipped_files.append(SkippedFile(
                         file_id=file_id,
                         file_name=file_name,
@@ -173,7 +183,7 @@ async def upload_folder(
                     ))
                     continue
 
-                if md5_checksum and queue_manager.is_md5_in_queue(md5_checksum):
+                if md5_checksum and await QueueManagerDB.is_md5_in_queue(db, md5_checksum):
                     skipped_files.append(SkippedFile(
                         file_id=file_id,
                         file_name=file_name,
@@ -250,7 +260,7 @@ async def upload_folder(
                 metadata=video_metadata,
             )
 
-            job = queue_manager.add_job(job_create)
+            job = await QueueManagerDB.add_job(db, job_create, user_id)
             added_jobs.append(job)
 
         return FolderUploadResponse(

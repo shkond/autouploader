@@ -4,13 +4,10 @@ Test categories:
 6.1 完全なアップロードフローテスト
 """
 
-import asyncio
-from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -28,7 +25,6 @@ class TestCompleteUploadFlow:
     @pytest.mark.asyncio
     async def test_complete_upload_flow(self, test_engine):
         """Test complete flow: file upload → queue → worker → completion."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel, UploadHistory
 
         session_maker = async_sessionmaker(
@@ -48,6 +44,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="e2e-drive-file",
                 drive_file_name="e2e_video.mp4",
                 drive_md5_checksum="e2e-md5-hash",
@@ -69,10 +66,10 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.status == "pending")
             )
             pending_job = result.scalars().first()
-            
+
             assert pending_job is not None
             assert pending_job.id == job_id
-            
+
             # Update to downloading
             pending_job.status = "downloading"
             pending_job.started_at = datetime.now(UTC)
@@ -85,7 +82,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.status = "uploading"
             job.progress = 25.0
             job.message = "Uploading to YouTube..."
@@ -97,7 +94,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.progress = 75.0
             job.message = "Upload 75% complete..."
             await session.commit()
@@ -108,7 +105,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.status = "completed"
             job.progress = 100.0
             job.video_id = "yt-e2e-12345"
@@ -123,7 +120,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             completed_job = result.scalars().first()
-            
+
             history = UploadHistory(
                 drive_file_id=completed_job.drive_file_id,
                 drive_file_name=completed_job.drive_file_name,
@@ -166,9 +163,11 @@ class TestCompleteUploadFlow:
         """
         import os
         import tempfile
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, create_async_engine
-        from app.models import QueueJobModel
+
+        from sqlalchemy.ext.asyncio import create_async_engine
+
         from app.database import Base
+        from app.models import QueueJobModel
 
         # Create a temporary file-based database
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -176,7 +175,7 @@ class TestCompleteUploadFlow:
 
         try:
             db_url = f"sqlite+aiosqlite:///{db_path}"
-            
+
             # Create engine and tables
             engine1 = create_async_engine(db_url, echo=False)
             async with engine1.begin() as conn:
@@ -189,7 +188,7 @@ class TestCompleteUploadFlow:
             )
 
             job_ids = []
-            
+
             # Phase 1: Create jobs (before "restart")
             async with session_maker() as session:
                 for i in range(3):
@@ -202,6 +201,7 @@ class TestCompleteUploadFlow:
                     )
                     job = QueueJobModel(
                         id=job_id,
+                        user_id="test-user",
                         drive_file_id=f"restart-file-{i}",
                         drive_file_name=f"restart_{i}.mp4",
                         drive_md5_checksum=f"restart-md5-{i}",
@@ -232,7 +232,7 @@ class TestCompleteUploadFlow:
                     select(QueueJobModel).where(QueueJobModel.status == "pending")
                 )
                 pending_jobs = result.scalars().all()
-                
+
                 assert len(pending_jobs) == 3
                 retrieved_ids = [job.id for job in pending_jobs]
                 for job_id in job_ids:
@@ -248,7 +248,6 @@ class TestCompleteUploadFlow:
     @pytest.mark.asyncio
     async def test_error_recovery(self, test_engine):
         """Test error recovery and retry mechanism."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -268,6 +267,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="error-file",
                 drive_file_name="error.mp4",
                 drive_md5_checksum="error-md5",
@@ -288,7 +288,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.status = "pending"  # Reset for retry
             job.retry_count = 1
             job.error = "Network timeout during download"
@@ -301,7 +301,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.retry_count = 2
             job.error = "YouTube API rate limit"
             job.message = "Retry 2/3"
@@ -313,7 +313,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             job.status = "completed"
             job.progress = 100.0
             job.video_id = "yt-recovered"
@@ -329,7 +329,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             final_job = result.scalars().first()
-            
+
             assert final_job.status == "completed"
             assert final_job.retry_count == 2
             assert final_job.video_id == "yt-recovered"
@@ -337,7 +337,6 @@ class TestCompleteUploadFlow:
     @pytest.mark.asyncio
     async def test_max_retries_exceeded(self, test_engine):
         """Test job fails permanently after max retries."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -357,6 +356,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="max-retry-file",
                 drive_file_name="max_retry.mp4",
                 drive_md5_checksum="max-retry-md5",
@@ -377,7 +377,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             job = result.scalars().first()
-            
+
             # After max retries, mark as failed
             job.status = "failed"
             job.retry_count = 2
@@ -391,7 +391,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             final_job = result.scalars().first()
-            
+
             assert final_job.status == "failed"
             assert final_job.retry_count == 2
             assert "Max retries exceeded" in final_job.error
@@ -399,7 +399,6 @@ class TestCompleteUploadFlow:
     @pytest.mark.asyncio
     async def test_batch_upload_flow(self, test_engine):
         """Test batch upload with multiple files."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel, UploadHistory
 
         session_maker = async_sessionmaker(
@@ -423,6 +422,7 @@ class TestCompleteUploadFlow:
                 )
                 job = QueueJobModel(
                     id=job_id,
+                    user_id="test-user",
                     drive_file_id=f"batch-file-{i}",
                     drive_file_name=f"batch_{i}.mp4",
                     drive_md5_checksum=f"batch-md5-{i}",
@@ -446,7 +446,7 @@ class TestCompleteUploadFlow:
                     select(QueueJobModel).where(QueueJobModel.id == job_id)
                 )
                 job = result.scalars().first()
-                
+
                 job.status = "completed"
                 job.progress = 100.0
                 job.video_id = f"yt-batch-{i}"
@@ -465,7 +465,7 @@ class TestCompleteUploadFlow:
                     uploaded_at=datetime.now(UTC),
                 )
                 session.add(history)
-            
+
             await session.commit()
 
         # Verify batch completion
@@ -474,7 +474,7 @@ class TestCompleteUploadFlow:
                 select(QueueJobModel).where(QueueJobModel.batch_id == batch_id)
             )
             batch_jobs = result.scalars().all()
-            
+
             assert len(batch_jobs) == 5
             assert all(job.status == "completed" for job in batch_jobs)
 

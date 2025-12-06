@@ -1,11 +1,9 @@
-"""Database models for AutoUploader."""
+"""Database models for CloudVid Bridge."""
 
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy import DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
 from app.database import Base
 
@@ -56,10 +54,15 @@ class QueueJobModel(Base):
 
     __tablename__ = "queue_jobs"
 
-    id: Mapped[UUID] = mapped_column(
-        String(36),  # Use String for SQLite compatibility
+    # UUID stored as String(36) for SQLite compatibility
+    # Type annotation uses str to match actual database type
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
     )
+    user_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )  # User who created this job
     drive_file_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     drive_file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     drive_md5_checksum: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)

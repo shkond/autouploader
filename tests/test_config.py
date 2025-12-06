@@ -13,7 +13,7 @@ def test_default_settings() -> None:
         settings = Settings(
             _env_file=None,  # type: ignore[call-arg]
         )
-        assert settings.app_name == "AutoUploader"
+        assert settings.app_name == "CloudVid Bridge"
         assert settings.app_env == "development"
         assert settings.debug is False
         assert settings.port == 8000

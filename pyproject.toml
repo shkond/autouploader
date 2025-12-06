@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "autouploader"
+name = "cloudvid-bridge"
 version = "0.1.0"
 description = "FastAPI backend for uploading videos from Google Drive to YouTube"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "autouploader", email = "autouploader@example.com"}
+    {name = "CloudVid Bridge", email = "cloudvid-bridge@example.com"}
 ]
 dependencies = [
     "fastapi>=0.109.0",

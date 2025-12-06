@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "AutoUploader"
+    app_name: str = "CloudVid Bridge"
     app_env: str = "development"
     debug: bool = False
     secret_key: str = "change-me-in-production"
@@ -31,11 +31,11 @@ class Settings(BaseSettings):
     google_scopes: str = (
         "https://www.googleapis.com/auth/drive.readonly "
         "https://www.googleapis.com/auth/youtube.upload "
-        "https://www.googleapis.com/auth/youtube"
+        "https://www.googleapis.com/auth/youtube.readonly"
     )
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./autouploader.db"
+    database_url: str = "sqlite+aiosqlite:///./cloudvid_bridge.db"
 
     # Queue settings
     max_concurrent_uploads: int = 2

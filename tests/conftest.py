@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.database import Base
 
-
 # Test database URL (in-memory SQLite for fast tests)
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -34,20 +33,20 @@ async def test_engine():
     """Create a test database engine."""
     # Import models to register them with Base
     from app import models  # noqa: F401
-    
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
     )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    
+
     await engine.dispose()
 
 
@@ -60,7 +59,7 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         expire_on_commit=False,
         autoflush=False,
     )
-    
+
     async with async_session_maker() as session:
         try:
             yield session
@@ -102,6 +101,8 @@ def sample_video_metadata() -> dict[str, Any]:
 @pytest.fixture
 def sample_queue_job_data(sample_video_metadata) -> dict[str, Any]:
     """Create sample queue job data for testing."""
+    import json
+
     return {
         "id": uuid4(),
         "drive_file_id": "test-drive-file-id",
@@ -109,7 +110,7 @@ def sample_queue_job_data(sample_video_metadata) -> dict[str, Any]:
         "drive_md5_checksum": "abc123def456",
         "folder_path": "/test/folder",
         "batch_id": "batch-001",
-        "metadata_json": str(sample_video_metadata),
+        "metadata_json": json.dumps(sample_video_metadata),
         "status": "pending",
         "progress": 0.0,
         "message": "",

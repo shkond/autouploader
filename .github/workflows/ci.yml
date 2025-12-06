@@ -84,7 +84,7 @@ jobs:
           context: .
           target: production
           push: false
-          tags: autouploader:${{ github.sha }}
+          tags: cloudvid-bridge:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
