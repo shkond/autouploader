@@ -39,6 +39,7 @@ class TestQueuePersistence:
 
         job = QueueJobModel(
             id=job_id,
+            user_id="test-user",
             drive_file_id="test-file-123",
             drive_file_name="video.mp4",
             drive_md5_checksum="abc123",
@@ -84,6 +85,7 @@ class TestQueuePersistence:
         async with session_maker() as session1:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="persist-file",
                 drive_file_name="persist.mp4",
                 drive_md5_checksum="persist123",
@@ -134,6 +136,7 @@ class TestQueuePersistence:
                 )
                 job = QueueJobModel(
                     id=job_id,
+                    user_id="test-user",
                     drive_file_id=f"file-{i}",
                     drive_file_name=f"video_{i}.mp4",
                     drive_md5_checksum=f"md5-{i}",
@@ -189,6 +192,7 @@ class TestQueueOperations:
                 )
                 job = QueueJobModel(
                     id=job_id,
+                    user_id="test-user",
                     drive_file_id=f"fifo-file-{i}",
                     drive_file_name=f"fifo_{i}.mp4",
                     drive_md5_checksum=f"fifo-md5-{i}",
@@ -230,6 +234,7 @@ class TestQueueOperations:
 
         job = QueueJobModel(
             id=job_id,
+            user_id="test-user",
             drive_file_id="status-file",
             drive_file_name="status.mp4",
             drive_md5_checksum="status-md5",
@@ -287,6 +292,7 @@ class TestQueueOperations:
 
         job = QueueJobModel(
             id=job_id,
+            user_id="test-user",
             drive_file_id="retry-file",
             drive_file_name="retry.mp4",
             drive_md5_checksum="retry-md5",
@@ -338,6 +344,7 @@ class TestQueueOperations:
             )
             job = QueueJobModel(
                 id=make_job_id(),
+                user_id="test-user",
                 drive_file_id=f"batch-file-{i}",
                 drive_file_name=f"batch_{i}.mp4",
                 drive_md5_checksum=f"batch-md5-{i}",
@@ -379,6 +386,7 @@ class TestQueueOperations:
         )
         job1 = QueueJobModel(
             id=make_job_id(),
+            user_id="test-user",
             drive_file_id="original-file",
             drive_file_name="original.mp4",
             drive_md5_checksum=md5,

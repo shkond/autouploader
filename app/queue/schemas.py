@@ -24,6 +24,7 @@ class QueueJob(BaseModel):
     """Upload queue job."""
 
     id: UUID = Field(default_factory=uuid4)
+    user_id: str = Field(default="", description="User who created this job")
     drive_file_id: str
     drive_file_name: str
     drive_md5_checksum: str | None = None

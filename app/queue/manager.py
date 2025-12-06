@@ -21,16 +21,18 @@ class QueueManager:
         self._jobs: dict[UUID, QueueJob] = {}
         self._is_processing = False
 
-    def add_job(self, job_create: QueueJobCreate) -> QueueJob:
+    def add_job(self, job_create: QueueJobCreate, user_id: str = "") -> QueueJob:
         """Add a new job to the queue.
 
         Args:
             job_create: Job creation request
+            user_id: User ID who created this job
 
         Returns:
             Created QueueJob
         """
         job = QueueJob(
+            user_id=user_id,
             drive_file_id=job_create.drive_file_id,
             drive_file_name=job_create.drive_file_name,
             drive_md5_checksum=job_create.drive_md5_checksum,
@@ -40,7 +42,7 @@ class QueueManager:
             status=JobStatus.PENDING,
         )
         self._jobs[job.id] = job
-        logger.info("Added job %s for file %s", job.id, job.drive_file_name)
+        logger.info("Added job %s for file %s (user: %s)", job.id, job.drive_file_name, user_id)
         return job
 
 
@@ -152,6 +154,17 @@ class QueueManager:
             List of all QueueJobs
         """
         return list(self._jobs.values())
+
+    def get_jobs_by_user(self, user_id: str) -> list[QueueJob]:
+        """Get all jobs for a specific user.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            List of QueueJobs belonging to the user
+        """
+        return [j for j in self._jobs.values() if j.user_id == user_id]
 
     def get_pending_jobs(self) -> list[QueueJob]:
         """Get all pending jobs.

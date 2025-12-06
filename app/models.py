@@ -60,6 +60,9 @@ class QueueJobModel(Base):
         String(36),  # Use String for SQLite compatibility
         primary_key=True,
     )
+    user_id: Mapped[str] = mapped_column(
+        String(255), nullable=False, index=True
+    )  # User who created this job
     drive_file_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     drive_file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     drive_md5_checksum: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)

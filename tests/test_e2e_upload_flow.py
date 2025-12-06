@@ -48,6 +48,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="e2e-drive-file",
                 drive_file_name="e2e_video.mp4",
                 drive_md5_checksum="e2e-md5-hash",
@@ -202,6 +203,7 @@ class TestCompleteUploadFlow:
                     )
                     job = QueueJobModel(
                         id=job_id,
+                        user_id="test-user",
                         drive_file_id=f"restart-file-{i}",
                         drive_file_name=f"restart_{i}.mp4",
                         drive_md5_checksum=f"restart-md5-{i}",
@@ -268,6 +270,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="error-file",
                 drive_file_name="error.mp4",
                 drive_md5_checksum="error-md5",
@@ -357,6 +360,7 @@ class TestCompleteUploadFlow:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="max-retry-file",
                 drive_file_name="max_retry.mp4",
                 drive_md5_checksum="max-retry-md5",
@@ -423,6 +427,7 @@ class TestCompleteUploadFlow:
                 )
                 job = QueueJobModel(
                     id=job_id,
+                    user_id="test-user",
                     drive_file_id=f"batch-file-{i}",
                     drive_file_name=f"batch_{i}.mp4",
                     drive_md5_checksum=f"batch-md5-{i}",

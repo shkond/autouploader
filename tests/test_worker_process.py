@@ -71,6 +71,7 @@ class TestWorkerProcessSeparation:
         async with session_maker() as web_session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="comm-test-file",
                 drive_file_name="comm.mp4",
                 drive_md5_checksum="comm-md5",
@@ -174,6 +175,7 @@ class TestWorkerIntegration:
         async with session_maker() as session:
             job = QueueJobModel(
                 id=job_id,
+                user_id="test-user",
                 drive_file_id="bg-task-file",
                 drive_file_name="bg_task.mp4",
                 drive_md5_checksum="bg-md5",
@@ -241,6 +243,7 @@ class TestWorkerIntegration:
                 )
                 job = QueueJobModel(
                     id=job_id,
+                    user_id="test-user",
                     drive_file_id=f"int-file-{i}",
                     drive_file_name=f"int_{i}.mp4",
                     drive_md5_checksum=f"int-md5-{i}",
@@ -302,6 +305,7 @@ class TestWorkerIntegration:
             )
             active_job = QueueJobModel(
                 id=make_job_id(),
+                user_id="test-user",
                 drive_file_id="active-file",
                 drive_file_name="active.mp4",
                 drive_md5_checksum="active-md5",
@@ -323,6 +327,7 @@ class TestWorkerIntegration:
             )
             pending_job = QueueJobModel(
                 id=make_job_id(),
+                user_id="test-user",
                 drive_file_id="pending-file",
                 drive_file_name="pending.mp4",
                 drive_md5_checksum="pending-md5",

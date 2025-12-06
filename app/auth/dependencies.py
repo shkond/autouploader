@@ -93,3 +93,48 @@ def check_google_auth() -> bool:
     """
     oauth_service = get_oauth_service()
     return oauth_service.is_authenticated()
+
+
+async def get_current_user(
+    session_data: dict = None,
+) -> str:
+    """Get current user ID from session.
+    
+    This is a dependency for extracting user_id from authenticated sessions.
+    Use with Depends(require_app_auth) to ensure authentication.
+    
+    Args:
+        session_data: Session data from require_app_auth (optional, for chaining)
+        
+    Returns:
+        User ID string
+        
+    Raises:
+        HTTPException: If user_id not found in session
+    """
+    if session_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    
+    user_id = session_data.get("user_id") or session_data.get("username")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User identification not found",
+        )
+    
+    return user_id
+
+
+def get_current_user_from_session(session_data: dict) -> str:
+    """Extract user_id from session data (non-async helper).
+    
+    Args:
+        session_data: Session data dict
+        
+    Returns:
+        User ID string or "anonymous" if not found
+    """
+    return session_data.get("user_id") or session_data.get("username") or "anonymous"
