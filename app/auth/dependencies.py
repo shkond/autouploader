@@ -117,14 +117,14 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
         )
-    
+
     user_id = session_data.get("user_id") or session_data.get("username")
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User identification not found",
         )
-    
+
     return user_id
 
 

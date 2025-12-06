@@ -5,12 +5,10 @@ Test categories:
 2.2 キュー操作テスト
 """
 
-import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,7 +63,8 @@ class TestQueuePersistence:
     @pytest.mark.asyncio
     async def test_job_persistence_across_sessions(self, test_engine):
         """Test jobs persist across different database sessions."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -114,7 +113,8 @@ class TestQueuePersistence:
     @pytest.mark.asyncio
     async def test_job_restore_after_restart(self, test_engine):
         """Test jobs can be restored after simulated restart."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -169,9 +169,11 @@ class TestQueueOperations:
     @pytest.mark.asyncio
     async def test_fifo_order_guarantee(self, test_engine):
         """Test FIFO order is maintained for pending jobs."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-        from app.models import QueueJobModel
         import asyncio
+
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+        from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
             bind=test_engine,
@@ -334,7 +336,7 @@ class TestQueueOperations:
         from app.models import QueueJobModel
 
         batch_id = "batch-group-001"
-        
+
         # Create multiple jobs in same batch
         for i in range(3):
             metadata = VideoMetadata(
@@ -366,7 +368,7 @@ class TestQueueOperations:
             select(QueueJobModel).where(QueueJobModel.batch_id == batch_id)
         )
         batch_jobs = result.scalars().all()
-        
+
         assert len(batch_jobs) == 3
         for job in batch_jobs:
             assert job.batch_id == batch_id
@@ -377,7 +379,7 @@ class TestQueueOperations:
         from app.models import QueueJobModel
 
         md5 = "duplicate-md5-checksum"
-        
+
         # Create first job
         metadata = VideoMetadata(
             title="Original",
@@ -409,6 +411,6 @@ class TestQueueOperations:
             )
         )
         existing = result.scalars().first()
-        
+
         assert existing is not None
         assert existing.drive_md5_checksum == md5

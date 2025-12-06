@@ -36,26 +36,27 @@ class OAuthService:
         Returns:
             Credentials or None if not found
         """
+        from sqlalchemy import select
+
         from app.crypto import decrypt_token
         from app.database import get_db_context
         from app.models import OAuthToken
-        from sqlalchemy import select
-        
+
         try:
             async with get_db_context() as session:
                 result = await session.execute(
                     select(OAuthToken).where(OAuthToken.user_id == user_id)
                 )
                 token_record = result.scalars().first()
-                
+
                 if not token_record:
                     return None
-                
+
                 # Decrypt tokens
                 access_token = decrypt_token(token_record.encrypted_access_token)
                 refresh_token = decrypt_token(token_record.encrypted_refresh_token)
                 scopes = json.loads(token_record.scopes)
-                
+
                 return Credentials(
                     token=access_token,
                     refresh_token=refresh_token,
@@ -78,24 +79,25 @@ class OAuthService:
             user_id: User identifier
             credentials: Google credentials to save
         """
+
+        from sqlalchemy import select
+
         from app.crypto import encrypt_token
         from app.database import get_db_context
         from app.models import OAuthToken
-        from sqlalchemy import select
-        from datetime import datetime, UTC
-        
+
         try:
             encrypted_access = encrypt_token(credentials.token or "")
             encrypted_refresh = encrypt_token(credentials.refresh_token or "")
             scopes_json = json.dumps(list(credentials.scopes or []))
-            
+
             async with get_db_context() as session:
                 # Check if record exists
                 result = await session.execute(
                     select(OAuthToken).where(OAuthToken.user_id == user_id)
                 )
                 existing = result.scalars().first()
-                
+
                 if existing:
                     # Update existing
                     existing.encrypted_access_token = encrypted_access
@@ -115,10 +117,10 @@ class OAuthService:
                         expires_at=credentials.expiry,
                     )
                     session.add(token_record)
-                
+
                 await session.commit()
                 logger.info(f"Saved OAuth credentials for user {user_id}")
-                
+
         except Exception as e:
             logger.error(f"Failed to save credentials to DB: {type(e).__name__}")
             logger.debug(f"Credential save error: {e}")
@@ -145,7 +147,7 @@ class OAuthService:
         """
         # Check cache first
         credentials = self._credentials_cache.get(user_id)
-        
+
         # If not in cache, load from DB
         if not credentials:
             credentials = await self._load_credentials_from_db(user_id)
@@ -212,11 +214,11 @@ class OAuthService:
             flow.state = state
         flow.fetch_token(code=code)
         credentials = flow.credentials
-        
+
         # Cache and save to DB
         self._credentials_cache[user_id] = credentials
         await self._save_credentials_to_db(user_id, credentials)
-        
+
         return credentials
 
     async def logout(self, user_id: str) -> None:
@@ -225,13 +227,14 @@ class OAuthService:
         Args:
             user_id: User identifier
         """
+        from sqlalchemy import delete
+
         from app.database import get_db_context
         from app.models import OAuthToken
-        from sqlalchemy import delete
-        
+
         # Clear cache
         self._credentials_cache.pop(user_id, None)
-        
+
         # Delete from DB
         try:
             async with get_db_context() as session:

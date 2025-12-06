@@ -4,11 +4,9 @@ Test categories:
 4.1 トークン暗号化テスト
 """
 
-from datetime import datetime, UTC
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,12 +16,12 @@ class TestTokenEncryption:
 
     def test_token_encryption(self):
         """Test tokens are encrypted correctly."""
-        from app.crypto import encrypt_token, decrypt_token
+        from app.crypto import decrypt_token, encrypt_token
 
         original_token = "ya29.a0AfH6SMBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-        
+
         encrypted = encrypt_token(original_token)
-        
+
         # Encrypted should be different from original
         assert encrypted != original_token
         # Encrypted should be a string (base64 encoded)
@@ -34,7 +32,7 @@ class TestTokenEncryption:
 
     def test_token_decryption(self):
         """Test tokens can be decrypted and used."""
-        from app.crypto import encrypt_token, decrypt_token
+        from app.crypto import decrypt_token, encrypt_token
 
         # Test with various token formats
         tokens = [
@@ -51,27 +49,27 @@ class TestTokenEncryption:
 
     def test_refresh_token_encryption(self):
         """Test refresh tokens are also encrypted."""
-        from app.crypto import encrypt_token, decrypt_token
+        from app.crypto import decrypt_token, encrypt_token
 
         refresh_token = "1//0eXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-        
+
         encrypted = encrypt_token(refresh_token)
         decrypted = decrypt_token(encrypted)
-        
+
         assert decrypted == refresh_token
 
     def test_encryption_uses_secret_key(self, clear_settings_cache):
         """Test encryption uses the configured secret key."""
         from app.crypto import encrypt_token
-        
+
         token = "test_token"
-        
+
         # Encrypt with default key
         encrypted1 = encrypt_token(token)
-        
+
         # Should produce consistent output with same key
         encrypted2 = encrypt_token(token)
-        
+
         # Note: Fernet encryption includes random IV, so same plaintext
         # produces different ciphertext. But both should decrypt correctly.
         from app.crypto import decrypt_token
@@ -81,8 +79,8 @@ class TestTokenEncryption:
     @pytest.mark.asyncio
     async def test_token_persistence_in_db(self, test_session: AsyncSession):
         """Test encrypted tokens can be stored in database."""
+        from app.crypto import decrypt_token, encrypt_token
         from app.models import OAuthToken
-        from app.crypto import encrypt_token, decrypt_token
 
         access_token = "ya29.access_token_value"
         refresh_token = "1//refresh_token_value"
@@ -115,8 +113,8 @@ class TestTokenEncryption:
     @pytest.mark.asyncio
     async def test_token_refresh_update(self, test_session: AsyncSession):
         """Test token refresh updates correctly in database."""
+        from app.crypto import decrypt_token, encrypt_token
         from app.models import OAuthToken
-        from app.crypto import encrypt_token, decrypt_token
 
         # Initial token
         oauth_token = OAuthToken(
@@ -142,7 +140,7 @@ class TestTokenEncryption:
         new_access_token = "new_access_token_after_refresh"
         token.encrypted_access_token = encrypt_token(new_access_token)
         token.updated_at = datetime.now(UTC)
-        
+
         await test_session.commit()
         await test_session.refresh(token)
 
@@ -154,25 +152,25 @@ class TestTokenEncryption:
     def test_invalid_encrypted_data_raises_error(self):
         """Test decryption fails gracefully for invalid data."""
         from app.crypto import decrypt_token
-        
+
         with pytest.raises(Exception):
             decrypt_token("invalid-not-base64-encoded-data!!!")
 
     def test_empty_token_handling(self):
         """Test empty token handling."""
-        from app.crypto import encrypt_token, decrypt_token
+        from app.crypto import decrypt_token, encrypt_token
 
         empty_token = ""
         encrypted = encrypt_token(empty_token)
         decrypted = decrypt_token(encrypted)
-        
+
         assert decrypted == empty_token
 
     @pytest.mark.asyncio
     async def test_multiple_users_tokens_isolated(self, test_session: AsyncSession):
         """Test tokens for different users are isolated."""
+        from app.crypto import decrypt_token, encrypt_token
         from app.models import OAuthToken
-        from app.crypto import encrypt_token, decrypt_token
 
         # Create tokens for two different users
         for user_num in range(2):
@@ -195,7 +193,7 @@ class TestTokenEncryption:
                 select(OAuthToken).where(OAuthToken.user_id == f"user-{user_num}")
             )
             token = result.scalars().first()
-            
+
             assert token is not None
             assert decrypt_token(token.encrypted_access_token) == f"access_token_{user_num}"
             assert decrypt_token(token.encrypted_refresh_token) == f"refresh_token_{user_num}"

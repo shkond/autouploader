@@ -6,13 +6,11 @@ Test categories:
 """
 
 import asyncio
-import signal
-from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -33,17 +31,17 @@ class TestWorkerProcessSeparation:
         from app.queue.worker import QueueWorker
 
         worker = QueueWorker()
-        
+
         # Worker should not be running initially
         assert worker.is_running() is False
-        
+
         # Start worker
         await worker.start()
         assert worker.is_running() is True
-        
+
         # Give it a moment to start the loop
         await asyncio.sleep(0.1)
-        
+
         # Stop worker
         await worker.stop()
         assert worker.is_running() is False
@@ -51,7 +49,6 @@ class TestWorkerProcessSeparation:
     @pytest.mark.asyncio
     async def test_worker_db_communication(self, test_engine):
         """Test worker communicates with web via database."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -92,7 +89,7 @@ class TestWorkerProcessSeparation:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             worker_job = result.scalars().first()
-            
+
             assert worker_job is not None
             worker_job.status = "downloading"
             worker_job.message = "Worker updating..."
@@ -104,7 +101,7 @@ class TestWorkerProcessSeparation:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             updated_job = result.scalars().first()
-            
+
             assert updated_job.status == "downloading"
             assert updated_job.message == "Worker updating..."
 
@@ -115,12 +112,12 @@ class TestWorkerProcessSeparation:
 
         worker = QueueWorker()
         await worker.start()
-        
+
         assert worker.is_running() is True
-        
+
         # Simulate graceful shutdown
         await worker.stop()
-        
+
         # Worker should have stopped cleanly
         assert worker.is_running() is False
         assert worker._task is not None  # Task should exist but be cancelled
@@ -128,23 +125,23 @@ class TestWorkerProcessSeparation:
     @pytest.mark.asyncio
     async def test_worker_handles_no_pending_jobs(self):
         """Test worker handles case when no pending jobs exist."""
-        from app.queue.worker import QueueWorker
         from app.queue.manager import QueueManager
+        from app.queue.worker import QueueWorker
 
         # Create a worker with mocked queue manager
         worker = QueueWorker()
-        
+
         # Mock the queue manager to return no jobs
         mock_manager = MagicMock(spec=QueueManager)
         mock_manager.get_active_jobs.return_value = []
         mock_manager.get_next_pending_job.return_value = None
         mock_manager.set_processing = MagicMock()
-        
+
         with patch('app.queue.worker.get_queue_manager', return_value=mock_manager):
             await worker.start()
             await asyncio.sleep(0.2)  # Let it run a little
             await worker.stop()
-        
+
         # Should have called set_processing(False) at least once
         mock_manager.set_processing.assert_called()
 
@@ -155,7 +152,6 @@ class TestWorkerIntegration:
     @pytest.mark.asyncio
     async def test_background_task_execution(self, test_engine):
         """Test background tasks are executed by worker."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -198,7 +194,7 @@ class TestWorkerIntegration:
                 ).order_by(QueueJobModel.created_at.asc())
             )
             pending_job = result.scalars().first()
-            
+
             if pending_job:
                 # Simulate processing
                 pending_job.status = "completed"
@@ -214,14 +210,13 @@ class TestWorkerIntegration:
                 select(QueueJobModel).where(QueueJobModel.id == job_id)
             )
             final_job = result.scalars().first()
-            
+
             assert final_job.status == "completed"
             assert final_job.video_id == "simulated-yt-id"
 
     @pytest.mark.asyncio
     async def test_endpoint_worker_integration(self, test_engine):
         """Test API endpoint and worker work together."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -267,10 +262,10 @@ class TestWorkerIntegration:
                     ).order_by(QueueJobModel.created_at.asc())
                 )
                 job = result.scalars().first()
-                
+
                 assert job is not None
                 assert job.id == expected_id  # FIFO order
-                
+
                 job.status = "completed"
                 job.completed_at = datetime.now(UTC)
                 await session.commit()
@@ -286,7 +281,6 @@ class TestWorkerIntegration:
     @pytest.mark.asyncio
     async def test_worker_skips_active_jobs(self, test_engine):
         """Test worker respects max concurrent uploads limit."""
-        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
         from app.models import QueueJobModel
 
         session_maker = async_sessionmaker(
@@ -350,6 +344,6 @@ class TestWorkerIntegration:
                 )
             )
             active_jobs = result.scalars().all()
-            
+
             # Worker should check this count before starting new jobs
             assert len(active_jobs) == 1

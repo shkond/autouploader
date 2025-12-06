@@ -222,51 +222,51 @@ async def run_standalone_worker() -> None:
     """
     import signal
     import sys
-    
-    from app.database import init_db, close_db
-    
+
+    from app.database import close_db, init_db
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
+
     logger.info("Starting standalone worker process...")
-    
+
     # Initialize database
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database initialized")
-    
+
     worker = get_queue_worker()
-    
+
     # Set up signal handlers for graceful shutdown
     shutdown_event = asyncio.Event()
-    
+
     def signal_handler(sig: int, frame: Any) -> None:
         logger.info("Received signal %s, initiating graceful shutdown...", sig)
         shutdown_event.set()
-    
+
     # Register signal handlers
     if sys.platform != "win32":
         signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     try:
         # Start worker
         await worker.start()
         logger.info("Worker started, waiting for jobs...")
-        
+
         # Wait for shutdown signal
         await shutdown_event.wait()
-        
+
     except asyncio.CancelledError:
         logger.info("Worker cancelled")
     finally:
         # Graceful shutdown
         logger.info("Stopping worker...")
         await worker.stop()
-        
+
         # Close database connections
         logger.info("Closing database connections...")
         await close_db()

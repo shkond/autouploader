@@ -14,7 +14,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.config import Settings
-from app.database import Base, get_engine, get_session_maker, init_db
 
 
 class TestPostgreSQLConnection:
@@ -64,8 +63,8 @@ class TestPostgreSQLConnection:
     def test_connection_pool_pre_ping(self):
         """Test that connection pool has pre_ping enabled."""
         # Use file-based SQLite to get a real pool (in-memory uses StaticPool)
-        import tempfile
         import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
         try:
@@ -113,14 +112,15 @@ class TestMigration:
                 text("SELECT name FROM sqlite_master WHERE type='table'")
             )
             tables = [row[0] for row in result.fetchall()]
-            
+
             # Should have upload_history table at minimum
             assert "upload_history" in tables
 
     @pytest.mark.asyncio
     async def test_model_persistence(self, test_session: AsyncSession):
         """Test data integrity when persisting models."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
+
         from app.models import UploadHistory
 
         # Create a record
@@ -149,7 +149,8 @@ class TestMigration:
     @pytest.mark.asyncio
     async def test_rollback_on_error(self, test_session: AsyncSession):
         """Test that rollback works correctly on error."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
+
         from app.models import UploadHistory
 
         # Start a transaction
@@ -163,10 +164,10 @@ class TestMigration:
             uploaded_at=datetime.now(UTC),
         )
         test_session.add(history)
-        
+
         # Simulate error by rolling back
         await test_session.rollback()
-        
+
         # Verify record was not persisted
         from sqlalchemy import select
         result = await test_session.execute(
@@ -177,7 +178,8 @@ class TestMigration:
     @pytest.mark.asyncio
     async def test_multiple_records_persistence(self, test_session: AsyncSession):
         """Test multiple records can be persisted and retrieved."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
+
         from app.models import UploadHistory
 
         # Create multiple records
@@ -196,7 +198,7 @@ class TestMigration:
         await test_session.commit()
 
         # Verify all records
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
         result = await test_session.execute(
             select(func.count()).select_from(UploadHistory)
         )
@@ -206,8 +208,10 @@ class TestMigration:
     @pytest.mark.asyncio
     async def test_unique_constraint_on_index(self, test_session: AsyncSession):
         """Test that indexed fields work correctly for queries."""
-        from datetime import datetime, UTC
+        from datetime import UTC, datetime
+
         from sqlalchemy import select
+
         from app.models import UploadHistory
 
         # Create records with same MD5 (index allows duplicates by design)

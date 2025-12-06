@@ -21,15 +21,15 @@ def _get_fernet() -> Fernet:
         Fernet instance for encryption/decryption
     """
     from app.config import get_settings
-    
+
     settings = get_settings()
     secret_key = settings.secret_key
-    
+
     # Derive a 32-byte key from SECRET_KEY using SHA-256
     key_bytes = hashlib.sha256(secret_key.encode()).digest()
     # Fernet requires base64-encoded 32-byte key
     fernet_key = base64.urlsafe_b64encode(key_bytes)
-    
+
     return Fernet(fernet_key)
 
 
