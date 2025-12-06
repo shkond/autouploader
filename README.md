@@ -6,21 +6,27 @@ FastAPI backend for uploading videos from Google Drive to YouTube with resumable
 
 - 🔐 **Google OAuth Authentication** - Secure authentication for Google Drive and YouTube APIs
 - 🔑 **Simple App Authentication** - Session-based login for app access control
+- 🗄️ **Database-Backed Queue** - Persistent job queue using SQLAlchemy (SQLite/PostgreSQL)
+- 🔒 **Token Encryption** - OAuth tokens encrypted with Fernet symmetric encryption
+- 👥 **Multi-User Support** - User-specific job queues and token management
 - 🌐 **Web UI** - Modern dark theme dashboard for video management
 - 📁 **Folder Upload UI** - Browse Drive folders, configure batch upload settings, preview videos, and manage upload queue
 - 📁 **Drive Folder Scanning** - Browse and scan Google Drive folders for video files
 - 📤 **Resumable Uploads** - Reliable YouTube uploads with chunked, resumable upload support
 - 📋 **Upload Queue Management** - Queue multiple videos for sequential or concurrent uploads
-- ⚡ **Background Workers** - Async background processing using FastAPI BackgroundTasks
+- ⚡ **Background Workers** - Standalone worker process for distributed job processing
 - 🔄 **Progress Tracking** - Real-time progress updates for downloads and uploads
 - 🐳 **Docker Ready** - Containerized deployment with Docker and docker-compose
-- ☁️ **Heroku Ready** - One-click deployment to Heroku
+- ☁️ **Heroku Ready** - One-click deployment to Heroku with PostgreSQL support
 - 🚀 **CI/CD Pipeline** - GitHub Actions workflow for linting, testing, and building
 
 ## Technology Stack
 
 - **Python 3.12**
 - **FastAPI** - Modern async web framework
+- **SQLAlchemy** - Database ORM with async support
+- **PostgreSQL/SQLite** - Database backends (PostgreSQL for production, SQLite for development)
+- **Cryptography** - Fernet symmetric encryption for OAuth tokens
 - **Jinja2** - Template engine for web UI
 - **google-api-python-client** - Google APIs client library
 - **Pydantic** - Data validation using Python type annotations
@@ -68,12 +74,17 @@ AUTH_USERNAME=your-username
 AUTH_PASSWORD=your-secure-password
 ```
 
-6. Run the application:
+6. Run database migrations (creates tables automatically on first run):
+```bash
+python -c "import asyncio; from app.database import init_db; asyncio.run(init_db())"
+```
+
+7. Run the application:
 ```bash
 uvicorn app.main:app --reload
 ```
 
-7. Visit `http://localhost:8000/auth/login` to access the login page.
+8. Visit `http://localhost:8000/auth/login` to access the login page.
 
 ### Docker
 
@@ -115,6 +126,33 @@ git push heroku main
 
 4. Update Google Cloud Console:
    - Add `https://your-app-name.herokuapp.com/auth/callback` as an authorized redirect URI
+
+5. Add PostgreSQL addon (recommended for production):
+```bash
+heroku addons:create heroku-postgresql:mini
+```
+
+### Worker Process
+
+The application uses a separate worker process for background job processing:
+
+**Local Development:**
+```bash
+# Terminal 1: Run web server
+uvicorn app.main:app --reload
+
+# Terminal 2: Run worker
+python -m app.queue.worker
+```
+
+**Heroku Deployment:**
+The `Procfile` defines both `web` and `worker` processes. Scale the worker:
+```bash
+heroku ps:scale worker=1
+```
+
+**Docker Deployment:**
+Use `docker-compose.yml` which runs both web and worker services.
 
 ## Web UI
 
@@ -208,21 +246,54 @@ autouploader/
 | `GOOGLE_REDIRECT_URI` | OAuth callback URL | http://localhost:8000/auth/callback |
 | `AUTH_USERNAME` | App login username | (required for production) |
 | `AUTH_PASSWORD` | App login password | (required for production) |
+| `DATABASE_URL` | Database connection URL | sqlite+aiosqlite:///./autouploader.db |
 | `MAX_CONCURRENT_UPLOADS` | Maximum concurrent uploads | 2 |
 | `UPLOAD_CHUNK_SIZE` | Upload chunk size in bytes | 10485760 (10MB) |
 
+## Architecture
+
+### Database Persistence
+
+The application uses SQLAlchemy with async support for database operations:
+
+- **Development**: SQLite with aiosqlite driver
+- **Production**: PostgreSQL (recommended for Heroku/cloud deployments)
+
+Three main tables:
+1. `queue_jobs` - Persistent upload queue with user ownership
+2. `oauth_tokens` - Encrypted OAuth credentials per user
+3. `upload_history` - Record of completed uploads for duplicate detection
+
+### Queue Management
+
+The upload queue is database-backed for persistence across restarts:
+
+- Jobs survive server restarts and crashes
+- Multi-user support with user-specific job filtering
+- Worker process polls database for pending jobs
+- Supports concurrent uploads (configurable via `MAX_CONCURRENT_UPLOADS`)
+
+### Security
+
+- OAuth tokens encrypted using Fernet symmetric encryption
+- Encryption key derived from `SECRET_KEY` environment variable
+- Session-based authentication for app access
+- User-specific data isolation
+
 ## Scaling for Production
 
-For production deployments with higher load, consider:
+The current architecture supports production deployments:
 
-1. **Redis for Queue Management**: Replace in-memory queue with Redis for persistence and horizontal scaling
-2. **Celery Workers**: Use Celery for distributed task processing
-3. **Database**: Store job history in PostgreSQL
-4. **Load Balancer**: Deploy multiple app instances behind a load balancer
-5. **Cloud Storage**: Use cloud storage for temporary file handling
-6. **External Session Store**: Use Redis for session persistence across dynos
+1. **Database**: PostgreSQL recommended for production (already implemented)
+2. **Worker Scaling**: Run multiple worker processes for higher throughput
+3. **Load Balancer**: Deploy multiple web instances behind a load balancer
+4. **Monitoring**: Add application monitoring and logging (e.g., Sentry, Datadog)
+5. **Caching**: Add Redis for session storage and caching (optional)
 
-Example Redis integration is included (commented) in `docker-compose.yml`.
+For higher scale:
+- Consider message queue systems (RabbitMQ, Redis) for job distribution
+- Implement worker heartbeat mechanism for better status tracking
+- Add database connection pooling for high concurrency
 
 ## Development
 

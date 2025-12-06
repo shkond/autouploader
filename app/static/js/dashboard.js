@@ -415,6 +415,25 @@ async function refreshQueueList() {
         } else {
             elements.progressInfo.innerHTML = '';
             activeJobs.forEach(job => {
+                const progressItem = document.createElement('div');
+                progressItem.className = 'progress-item';
+
+                const statusText = job.status === 'downloading'
+                    ? 'ダウンロード中'
+                    : 'アップロード中';
+
+                progressItem.innerHTML = `
+                    <div class="progress-header">
+                        <span class="progress-filename">${job.drive_file_name}</span>
+                        <span class="progress-percentage">${Math.round(job.progress)}%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${job.progress}%"></div>
+                    </div>
+                    <div class="progress-status">${statusText}: ${job.message}</div>
+                `;
+
+                elements.progressInfo.appendChild(progressItem);
             });
         }
     }

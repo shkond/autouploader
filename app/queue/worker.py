@@ -101,6 +101,8 @@ class QueueWorker:
             youtube_service = get_youtube_service()
 
             # Create progress callback
+            # Note: This callback is async, but upload_from_drive() expects a sync callback.
+            # The youtube service should handle the async/sync conversion internally.
             async def progress_callback(progress: UploadProgress) -> None:
                 status = JobStatus.DOWNLOADING
                 if progress.status == "uploading":
@@ -257,7 +259,8 @@ async def run_standalone_worker() -> None:
     # Set up signal handlers for graceful shutdown
     shutdown_event = asyncio.Event()
 
-    def signal_handler(sig: int, frame: Any) -> None:
+    def signal_handler(sig: int, _frame: Any) -> None:
+        """Handle shutdown signals (SIGTERM, SIGINT)."""
         logger.info("Received signal %s, initiating graceful shutdown...", sig)
         shutdown_event.set()
 

@@ -95,7 +95,7 @@ def check_google_auth() -> bool:
     return oauth_service.is_authenticated()
 
 
-async def get_current_user(
+def get_current_user(
     session_data: dict = None,
 ) -> str:
     """Get current user ID from session.
@@ -128,13 +128,17 @@ async def get_current_user(
     return user_id
 
 
-def get_current_user_from_session(session_data: dict) -> str:
+def get_current_user_from_session(session_data: dict) -> str | None:
     """Extract user_id from session data (non-async helper).
     
     Args:
         session_data: Session data dict
         
     Returns:
-        User ID string or "anonymous" if not found
+        User ID string or None if not found
+        
+    Note:
+        Returns None instead of a default value to avoid hiding authentication bugs.
+        Callers should handle None appropriately.
     """
-    return session_data.get("user_id") or session_data.get("username") or "anonymous"
+    return session_data.get("user_id") or session_data.get("username")

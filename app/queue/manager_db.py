@@ -4,7 +4,7 @@ This replaces the in-memory QueueManager with a persistent database implementati
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -90,7 +90,7 @@ class QueueManagerDB:
             message="",
             retry_count=0,
             max_retries=3,
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
         )
 
         db.add(model)
@@ -166,9 +166,9 @@ class QueueManagerDB:
             model.status = status.value
             if status == JobStatus.DOWNLOADING or status == JobStatus.UPLOADING:
                 if model.started_at is None:
-                    model.started_at = datetime.now()
+                    model.started_at = datetime.now(UTC)
             elif status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
-                model.completed_at = datetime.now()
+                model.completed_at = datetime.now(UTC)
 
         if progress is not None:
             model.progress = progress
@@ -210,7 +210,7 @@ class QueueManagerDB:
             return None
 
         model.status = JobStatus.CANCELLED.value
-        model.completed_at = datetime.now()
+        model.completed_at = datetime.now(UTC)
         model.message = "Cancelled by user"
 
         await db.commit()
@@ -336,6 +336,8 @@ class QueueManagerDB:
     ) -> QueueStatus:
         """Get overall queue status, optionally filtered by user.
         
+        Uses database aggregation for efficiency instead of loading all jobs.
+        
         Args:
             db: Database session
             user_id: Optional user ID to filter by
@@ -343,27 +345,48 @@ class QueueManagerDB:
         Returns:
             QueueStatus summary
         """
-        # Build base query
-        query = select(QueueJobModel)
+        from sqlalchemy import case
+
+        # Build base query with conditional aggregation
+        query = select(
+            func.count().label("total"),
+            func.sum(
+                case((QueueJobModel.status == JobStatus.PENDING.value, 1), else_=0)
+            ).label("pending"),
+            func.sum(
+                case(
+                    (
+                        QueueJobModel.status.in_(
+                            [JobStatus.DOWNLOADING.value, JobStatus.UPLOADING.value]
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("active"),
+            func.sum(
+                case((QueueJobModel.status == JobStatus.COMPLETED.value, 1), else_=0)
+            ).label("completed"),
+            func.sum(
+                case((QueueJobModel.status == JobStatus.FAILED.value, 1), else_=0)
+            ).label("failed"),
+        )
+
         if user_id:
             query = query.where(QueueJobModel.user_id == user_id)
 
         result = await db.execute(query)
-        models = list(result.scalars().all())
+        row = result.first()
 
         return QueueStatus(
-            total_jobs=len(models),
-            pending_jobs=sum(1 for m in models if m.status == JobStatus.PENDING.value),
-            active_jobs=sum(
-                1
-                for m in models
-                if m.status in (JobStatus.DOWNLOADING.value, JobStatus.UPLOADING.value)
-            ),
-            completed_jobs=sum(
-                1 for m in models if m.status == JobStatus.COMPLETED.value
-            ),
-            failed_jobs=sum(1 for m in models if m.status == JobStatus.FAILED.value),
-            is_processing=False,  # This will be updated by worker
+            total_jobs=row.total or 0,
+            pending_jobs=row.pending or 0,
+            active_jobs=row.active or 0,
+            completed_jobs=row.completed or 0,
+            failed_jobs=row.failed or 0,
+            # Note: is_processing is hardcoded to False as worker state tracking
+            # requires a separate heartbeat mechanism (future enhancement)
+            is_processing=False,
         )
 
     @staticmethod

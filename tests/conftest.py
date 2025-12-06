@@ -101,6 +101,8 @@ def sample_video_metadata() -> dict[str, Any]:
 @pytest.fixture
 def sample_queue_job_data(sample_video_metadata) -> dict[str, Any]:
     """Create sample queue job data for testing."""
+    import json
+
     return {
         "id": uuid4(),
         "drive_file_id": "test-drive-file-id",
@@ -108,7 +110,7 @@ def sample_queue_job_data(sample_video_metadata) -> dict[str, Any]:
         "drive_md5_checksum": "abc123def456",
         "folder_path": "/test/folder",
         "batch_id": "batch-001",
-        "metadata_json": str(sample_video_metadata),
+        "metadata_json": json.dumps(sample_video_metadata),
         "status": "pending",
         "progress": 0.0,
         "message": "",

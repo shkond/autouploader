@@ -57,7 +57,7 @@ def decrypt_token(ciphertext: str) -> str:
         Decrypted plaintext token
         
     Raises:
-        InvalidToken: If decryption fails
+        cryptography.fernet.InvalidToken: If decryption fails
     """
     fernet = _get_fernet()
     decrypted_bytes = fernet.decrypt(ciphertext.encode("utf-8"))

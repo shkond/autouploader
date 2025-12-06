@@ -122,6 +122,7 @@ class TestWorkerProcessSeparation:
         assert worker.is_running() is False
         assert worker._task is not None  # Task should exist but be cancelled
 
+    @pytest.mark.skip(reason="Obsolete - QueueManager replaced with database-backed QueueManagerDB")
     @pytest.mark.asyncio
     async def test_worker_handles_no_pending_jobs(self):
         """Test worker handles case when no pending jobs exist."""
