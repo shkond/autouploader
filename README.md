@@ -7,6 +7,7 @@ FastAPI backend for uploading videos from Google Drive to YouTube with resumable
 - 🔐 **Google OAuth Authentication** - Secure authentication for Google Drive and YouTube APIs
 - 🔑 **Simple App Authentication** - Session-based login for app access control
 - 🌐 **Web UI** - Modern dark theme dashboard for video management
+- 📁 **Folder Upload UI** - Browse Drive folders, configure batch upload settings, preview videos, and manage upload queue
 - 📁 **Drive Folder Scanning** - Browse and scan Google Drive folders for video files
 - 📤 **Resumable Uploads** - Reliable YouTube uploads with chunked, resumable upload support
 - 📋 **Upload Queue Management** - Queue multiple videos for sequential or concurrent uploads
