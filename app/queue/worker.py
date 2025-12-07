@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from app.config import get_settings
@@ -88,6 +88,27 @@ class QueueWorker:
             logger.info("Processing job %s: %s", job.id, job.drive_file_name)
 
         try:
+            # Get YouTube service
+            youtube_service = get_youtube_service()
+
+            # Pre-upload check: verify if video was already uploaded
+            skip_result = await self._pre_upload_check(job, youtube_service)
+            if skip_result["skip"]:
+                async with get_db_context() as db:
+                    await QueueManagerDB.update_job(
+                        db,
+                        job_id,
+                        status=JobStatus.COMPLETED,
+                        progress=100,
+                        message=skip_result["reason"],
+                        video_id=skip_result.get("video_id"),
+                        video_url=skip_result.get("video_url"),
+                    )
+                logger.info(
+                    "Job %s skipped: %s", job.id, skip_result["reason"]
+                )
+                return
+
             # Update status to downloading
             async with get_db_context() as db:
                 await QueueManagerDB.update_job(
@@ -96,9 +117,6 @@ class QueueWorker:
                     status=JobStatus.DOWNLOADING,
                     message="Starting download from Google Drive...",
                 )
-
-            # Get YouTube service
-            youtube_service = get_youtube_service()
 
             # Create progress callback
             # Note: This callback is async, but upload_from_drive() expects a sync callback.
@@ -117,8 +135,8 @@ class QueueWorker:
                         message=progress.message,
                     )
 
-            # Upload from Drive to YouTube
-            result = youtube_service.upload_from_drive(
+            # Upload from Drive to YouTube with retry logic
+            result = youtube_service.upload_from_drive_with_retry(
                 drive_file_id=job.drive_file_id,
                 metadata=job.metadata,
                 progress_callback=progress_callback,
@@ -163,6 +181,77 @@ class QueueWorker:
                     message="Upload failed",
                     error=str(e),
                 )
+
+    async def _pre_upload_check(
+        self,
+        job: "QueueJob",
+        youtube_service: Any,
+    ) -> dict:
+        """Check if upload should be skipped (already uploaded).
+
+        Args:
+            job: Queue job to check
+            youtube_service: YouTube service instance
+
+        Returns:
+            Dict with skip (bool), reason (str), and optionally video_id/video_url
+        """
+        from datetime import timedelta
+
+        from sqlalchemy import select
+
+        from app.database import get_db_context
+        from app.models import UploadHistory
+
+        if not job.drive_md5_checksum:
+            return {"skip": False}
+
+        async with get_db_context() as db:
+            # Check if this file was already uploaded (by MD5)
+            result = await db.execute(
+                select(UploadHistory).where(
+                    UploadHistory.drive_md5_checksum == job.drive_md5_checksum
+                )
+            )
+            history = result.scalars().first()
+
+            if not history or not history.youtube_video_id:
+                return {"skip": False}
+
+            # Check if we verified recently (within 24 hours)
+            now = datetime.now(UTC)
+            if history.last_verified_at:
+                time_since_verify = now - history.last_verified_at
+                if time_since_verify < timedelta(hours=24):
+                    logger.info(
+                        "Video %s verified within 24h, skipping",
+                        history.youtube_video_id,
+                    )
+                    return {
+                        "skip": True,
+                        "reason": f"Already uploaded (verified {time_since_verify.seconds // 3600}h ago)",
+                        "video_id": history.youtube_video_id,
+                        "video_url": history.youtube_video_url,
+                    }
+
+            # Verify video still exists on YouTube (costs 1 quota unit)
+            exists = youtube_service.check_video_exists_on_youtube(
+                history.youtube_video_id
+            )
+
+            if exists:
+                # Update last_verified_at
+                history.last_verified_at = now
+                await db.commit()
+
+                return {
+                    "skip": True,
+                    "reason": "Already uploaded and verified on YouTube",
+                    "video_id": history.youtube_video_id,
+                    "video_url": history.youtube_video_url,
+                }
+
+        return {"skip": False}
 
 
     def is_running(self) -> bool:

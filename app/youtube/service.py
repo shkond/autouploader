@@ -2,16 +2,24 @@
 
 import io
 import logging
+from functools import lru_cache
 from typing import Any
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.auth.oauth import get_oauth_service
 from app.config import get_settings
 from app.drive.service import get_drive_service
+from app.youtube.quota import get_quota_tracker
 from app.youtube.schemas import (
     UploadProgress,
     UploadResult,
@@ -19,6 +27,46 @@ from app.youtube.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_retryable_error(exception: BaseException) -> bool:
+    """Check if an error is retryable (quota/rate limit).
+    
+    Args:
+        exception: The exception to check
+        
+    Returns:
+        True if the error should trigger a retry
+    """
+    if isinstance(exception, HttpError):
+        # 403 = quota exceeded, 429 = rate limit
+        if exception.resp.status in [403, 429]:
+            error_reason = ""
+            try:
+                import json
+                error_content = json.loads(exception.content.decode("utf-8"))
+                error_reason = (
+                    error_content.get("error", {})
+                    .get("errors", [{}])[0]
+                    .get("reason", "")
+                )
+            except Exception:
+                pass
+            
+            # Retry on quota/rate limit errors, but not on permission errors
+            if error_reason in ["quotaExceeded", "rateLimitExceeded", "userRateLimitExceeded"]:
+                logger.warning(
+                    "Retryable API error: status=%s, reason=%s",
+                    exception.resp.status,
+                    error_reason,
+                )
+                return True
+            
+            # 429 is always rate limit
+            if exception.resp.status == 429:
+                return True
+    
+    return False
 
 
 class YouTubeService:
@@ -239,9 +287,11 @@ class YouTubeService:
         Returns:
             Channel information dict
         """
+        quota_tracker = get_quota_tracker()
         response = (
             self.service.channels().list(part="snippet,statistics", mine=True).execute()
         )
+        quota_tracker.track("channels.list")
         items = response.get("items", [])
         if items:
             return items[0]
@@ -250,12 +300,16 @@ class YouTubeService:
     def list_my_videos(self, max_results: int = 25) -> list[dict[str, Any]]:
         """List videos uploaded by the authenticated user.
 
+        Note: This uses search.list which costs 100 quota units.
+        For a more efficient alternative, use list_my_videos_optimized().
+
         Args:
             max_results: Maximum number of videos to return
 
         Returns:
             List of video information dicts
         """
+        quota_tracker = get_quota_tracker()
         response = (
             self.service.search()
             .list(
@@ -266,7 +320,190 @@ class YouTubeService:
             )
             .execute()
         )
+        quota_tracker.track("search.list")
         return response.get("items", [])
+
+    def check_video_exists_on_youtube(self, video_id: str) -> bool:
+        """Check if a video exists on YouTube.
+        
+        This is useful for verifying that previously uploaded videos still exist.
+        Costs only 1 quota unit.
+        
+        Args:
+            video_id: YouTube video ID to check
+            
+        Returns:
+            True if video exists, False otherwise
+        """
+        quota_tracker = get_quota_tracker()
+        try:
+            response = (
+                self.service.videos()
+                .list(
+                    part="id",  # Minimal fields to reduce data transfer
+                    id=video_id,
+                )
+                .execute()
+            )
+            quota_tracker.track("videos.list")
+            return len(response.get("items", [])) > 0
+        except HttpError as e:
+            logger.warning("Failed to check video %s: %s", video_id, e)
+            return False
+
+    @lru_cache(maxsize=8)
+    def _get_uploads_playlist_id(self) -> str | None:
+        """Get the uploads playlist ID for the authenticated channel.
+        
+        This is cached to avoid repeated API calls.
+        Costs 1 quota unit on first call.
+        
+        Returns:
+            Uploads playlist ID or None if not found
+        """
+        quota_tracker = get_quota_tracker()
+        try:
+            response = (
+                self.service.channels()
+                .list(
+                    part="contentDetails",
+                    mine=True,
+                )
+                .execute()
+            )
+            quota_tracker.track("channels.list")
+            
+            items = response.get("items", [])
+            if not items:
+                return None
+            
+            return (
+                items[0]
+                .get("contentDetails", {})
+                .get("relatedPlaylists", {})
+                .get("uploads")
+            )
+        except HttpError as e:
+            logger.warning("Failed to get uploads playlist: %s", e)
+            return None
+
+    def list_my_videos_optimized(
+        self, max_results: int = 25
+    ) -> list[dict[str, Any]]:
+        """List videos using playlistItems API (optimized version).
+        
+        This uses playlistItems.list which costs only 1-2 quota units
+        instead of search.list which costs 100 units.
+        
+        Args:
+            max_results: Maximum number of videos to return
+            
+        Returns:
+            List of video information dicts
+        """
+        quota_tracker = get_quota_tracker()
+        
+        # Get uploads playlist ID
+        playlist_id = self._get_uploads_playlist_id()
+        if not playlist_id:
+            logger.warning("Could not get uploads playlist, falling back to search")
+            return self.list_my_videos(max_results)
+        
+        try:
+            response = (
+                self.service.playlistItems()
+                .list(
+                    part="snippet,contentDetails",
+                    playlistId=playlist_id,
+                    maxResults=max_results,
+                )
+                .execute()
+            )
+            quota_tracker.track("playlistItems.list")
+            return response.get("items", [])
+        except HttpError as e:
+            logger.warning("Failed to list playlist items: %s", e)
+            return []
+
+    def get_videos_batch(self, video_ids: list[str]) -> list[dict[str, Any]]:
+        """Get information for multiple videos in a single request.
+        
+        This is much more efficient than calling videos.list for each video.
+        Costs only 1 quota unit for up to 50 videos.
+        
+        Args:
+            video_ids: List of YouTube video IDs (max 50)
+            
+        Returns:
+            List of video information dicts
+        """
+        if not video_ids:
+            return []
+        
+        quota_tracker = get_quota_tracker()
+        
+        # YouTube API allows max 50 IDs per request
+        batch_ids = video_ids[:50]
+        
+        try:
+            response = (
+                self.service.videos()
+                .list(
+                    part="snippet,contentDetails,status",
+                    id=",".join(batch_ids),
+                )
+                .execute()
+            )
+            quota_tracker.track("videos.list")
+            return response.get("items", [])
+        except HttpError as e:
+            logger.warning("Failed to get videos batch: %s", e)
+            return []
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        retry=retry_if_exception(_is_retryable_error),
+        reraise=True,
+    )
+    def upload_from_drive_with_retry(
+        self,
+        drive_file_id: str,
+        metadata: VideoMetadata,
+        progress_callback: Any | None = None,
+    ) -> UploadResult:
+        """Upload a video from Google Drive to YouTube with retry logic.
+
+        This method wraps upload_from_drive with exponential backoff
+        for handling quota/rate limit errors.
+
+        Args:
+            drive_file_id: Google Drive file ID
+            metadata: Video metadata for YouTube
+            progress_callback: Optional callback for progress updates
+
+        Returns:
+            UploadResult with video ID and URL
+        """
+        quota_tracker = get_quota_tracker()
+        
+        logger.info(
+            "Starting upload with retry: %s (quota remaining: %d)",
+            drive_file_id,
+            quota_tracker.get_remaining_quota(),
+        )
+        
+        result = self.upload_from_drive(
+            drive_file_id=drive_file_id,
+            metadata=metadata,
+            progress_callback=progress_callback,
+        )
+        
+        # Track the upload operation
+        if result.success:
+            quota_tracker.track("videos.insert")
+        
+        return result
 
 
 def get_youtube_service() -> YouTubeService:

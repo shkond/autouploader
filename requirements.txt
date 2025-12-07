@@ -15,6 +15,7 @@ python-multipart>=0.0.6
 httpx>=0.26.0
 python-jose[cryptography]>=3.3.0
 aiosqlite>=0.19.0
+tenacity>=8.2.0
 
 # Database
 sqlalchemy[asyncio]>=2.0.0

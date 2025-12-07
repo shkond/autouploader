@@ -21,6 +21,12 @@ class UploadHistory(Base):
     )
     youtube_video_id: Mapped[str] = mapped_column(String(50), nullable=False)
     youtube_video_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    youtube_etag: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )  # YouTube API ETag for change detection
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )  # Last time video existence was verified on YouTube
     folder_path: Mapped[str] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="completed"

@@ -107,3 +107,46 @@ async def upload_video(request: UploadRequest) -> UploadResult:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Upload failed: {e!s}",
         ) from e
+
+
+@router.get("/quota")
+async def get_quota_status() -> dict:
+    """Get current YouTube API quota usage status.
+
+    Returns:
+        Quota usage summary including daily usage, remaining quota,
+        and breakdown by API operation.
+    """
+    from app.youtube.quota import get_quota_tracker
+
+    tracker = get_quota_tracker()
+    return tracker.get_usage_summary()
+
+
+@router.get("/video/{video_id}/exists")
+async def check_video_exists(video_id: str) -> dict:
+    """Check if a video exists on YouTube.
+
+    This is useful for verifying that previously uploaded videos still exist.
+    Costs only 1 quota unit.
+
+    Args:
+        video_id: YouTube video ID to check
+
+    Returns:
+        Dict with exists boolean and video_id
+    """
+    try:
+        service = get_youtube_service()
+        exists = service.check_video_exists_on_youtube(video_id)
+        return {"video_id": video_id, "exists": exists}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check video: {e!s}",
+        ) from e

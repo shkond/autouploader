@@ -2,6 +2,20 @@
 
 FastAPI backend for uploading videos from Google Drive to YouTube with resumable uploads, queue management, and OAuth authentication.
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Docker](#docker)
+- [Heroku Deployment](#heroku-deployment)
+- [Worker Process](#worker-process)
+- [YouTube API Optimization & Quota Monitoring](#youtube-api-optimization--quota-monitoring)
+- [API Endpoints](#api-endpoints)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Development](#development)
+- [License](#license)
+
 ## Features
 
 - 🔐 **Google OAuth Authentication** - Secure authentication for Google Drive and YouTube APIs
@@ -326,3 +340,13 @@ ruff format app/
 ## License
 
 MIT License
+
+## YouTube API Optimization & Quota Monitoring
+
+This project includes newly implemented YouTube API quota optimizations and error handling features:
+
+- **Quota Optimizations**: Use `playlistItems.list` where appropriate (reduced cost from 100 units to 1-2 units), and `get_videos_batch` to fetch up to 50 videos per request to reduce the number of requests.
+- **Retry & Backoff**: Implemented retry/backoff for uploads using `tenacity` to handle rate limits and transient API errors.
+- **Quota Tracking**: A `QuotaTracker` is available to monitor daily usage and estimated remaining quota via the `/youtube/quota` endpoint.
+- **Pre-upload Verification**: Worker pre-upload checks verify existence of videos on YouTube and updates `last_verified_at` to reduce duplicate uploads.
+
