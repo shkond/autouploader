@@ -182,8 +182,8 @@ class QueueWorker:
                     error=str(e),
                 )
 
+    @staticmethod
     async def _pre_upload_check(
-        self,
         job: "QueueJob",
         youtube_service: "YouTubeService",
     ) -> "SkipResult":
@@ -262,8 +262,8 @@ class QueueWorker:
         """
         return self._running
 
+    @staticmethod
     async def _save_upload_history(
-        self,
         job: "QueueJob",
         video_id: str,
         video_url: str,

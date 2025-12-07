@@ -70,8 +70,9 @@ class OAuthService:
             logger.debug(f"Credential load error: {e}")
             return None
 
+    @staticmethod
     async def _save_credentials_to_db(
-        self, user_id: str, credentials: Credentials
+        user_id: str, credentials: Credentials
     ) -> None:
         """Save credentials to database for a user.
         

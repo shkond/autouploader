@@ -19,7 +19,8 @@ from app.config import Settings
 class TestPostgreSQLConnection:
     """1.1 PostgreSQL接続・設定テスト"""
 
-    def test_sqlite_connection_url(self):
+    @staticmethod
+    def test_sqlite_connection_url():
         """Test SQLite connection URL conversion."""
         settings = Settings(
             database_url="sqlite:///./test.db",
@@ -27,7 +28,8 @@ class TestPostgreSQLConnection:
         )
         assert settings.async_database_url == "sqlite+aiosqlite:///./test.db"
 
-    def test_postgresql_url_conversion_from_postgres(self):
+    @staticmethod
+    def test_postgresql_url_conversion_from_postgres():
         """Test postgres:// → postgresql+asyncpg:// conversion (Heroku style)."""
         settings = Settings(
             database_url="postgres://user:pass@host:5432/dbname",
@@ -35,7 +37,8 @@ class TestPostgreSQLConnection:
         )
         assert settings.async_database_url == "postgresql+asyncpg://user:pass@host:5432/dbname"
 
-    def test_postgresql_url_conversion_from_postgresql(self):
+    @staticmethod
+    def test_postgresql_url_conversion_from_postgresql():
         """Test postgresql:// → postgresql+asyncpg:// conversion (Standard)."""
         settings = Settings(
             database_url="postgresql://user:pass@host:5432/dbname",
@@ -43,7 +46,8 @@ class TestPostgreSQLConnection:
         )
         assert settings.async_database_url == "postgresql+asyncpg://user:pass@host:5432/dbname"
 
-    def test_digitalocean_postgresql_url(self):
+    @staticmethod
+    def test_digitalocean_postgresql_url():
         """Test DigitalOcean PostgreSQL URL conversion."""
         do_url = "postgresql://user:pass@db-postgresql-sgp1-12345.ondigitalocean.com:25060/defaultdb"
         settings = Settings(
@@ -53,14 +57,16 @@ class TestPostgreSQLConnection:
         expected = "postgresql+asyncpg://user:pass@db-postgresql-sgp1-12345.ondigitalocean.com:25060/defaultdb"
         assert settings.async_database_url == expected
 
-    def test_database_url_from_env(self, clear_settings_cache):
+    @staticmethod
+    def test_database_url_from_env(clear_settings_cache):
         """Test database URL from environment variable."""
         test_url = "postgresql://envuser:envpass@envhost:5432/envdb"
         with patch.dict(os.environ, {"DATABASE_URL": test_url}, clear=False):
             settings = Settings(_env_file=None)  # type: ignore[call-arg]
             assert settings.database_url == test_url
 
-    def test_connection_pool_pre_ping(self):
+    @staticmethod
+    def test_connection_pool_pre_ping():
         """Test that connection pool has pre_ping enabled."""
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
