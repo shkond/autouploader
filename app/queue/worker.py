@@ -185,8 +185,8 @@ class QueueWorker:
     async def _pre_upload_check(
         self,
         job: "QueueJob",
-        youtube_service: Any,
-    ) -> dict:
+        youtube_service: "YouTubeService",
+    ) -> "SkipResult":
         """Check if upload should be skipped (already uploaded).
 
         Args:
