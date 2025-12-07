@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,12 +23,13 @@ class Settings(BaseSettings):
 
     # Server
     host: str = "0.0.0.0"
-    port: int = 8000
+    port: int = Field(8000, env="PORT")
 
     # Google OAuth
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/auth/callback"
+    # OAuth redirect URI. If not provided, derive from localhost and configured port.
+    google_redirect_uri: str | None = None
     google_scopes: str = (
         "https://www.googleapis.com/auth/drive.readonly "
         "https://www.googleapis.com/auth/youtube.upload "
@@ -70,6 +72,14 @@ class Settings(BaseSettings):
         if url.startswith("sqlite://"):
             return url.replace("sqlite://", "sqlite+aiosqlite://", 1)
         return url
+
+    @model_validator(mode="after")
+    def _set_defaults(self) -> "Settings":
+        # Ensure Google redirect URI uses the configured PORT when not explicitly set.
+        if not self.google_redirect_uri:
+            # Use localhost for redirect URIs when host is unspecified or binding host.
+            self.google_redirect_uri = f"http://localhost:{self.port}/auth/callback"
+        return self
 
 
 
