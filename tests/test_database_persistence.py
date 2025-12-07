@@ -62,8 +62,6 @@ class TestPostgreSQLConnection:
 
     def test_connection_pool_pre_ping(self):
         """Test that connection pool has pre_ping enabled."""
-        # Use file-based SQLite to get a real pool (in-memory uses StaticPool)
-        import os
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
