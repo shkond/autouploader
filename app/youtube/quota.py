@@ -52,9 +52,8 @@ class QuotaTracker:
 
     def _get_today_key(self) -> str:
         """Get today's date key in PST (YouTube quota resets at midnight PST)."""
-        # YouTube quota resets at midnight Pacific Time
-        # Approximate by using UTC-8
-        now = datetime.now(UTC) - timedelta(hours=8)
+        # YouTube quota resets at midnight Pacific Time.
+        now = datetime.now(ZoneInfo("America/Los_Angeles"))
         return now.strftime("%Y-%m-%d")
 
     def _check_reset(self) -> None:
