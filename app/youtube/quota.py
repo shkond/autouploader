@@ -5,8 +5,9 @@ Tracks API usage to help manage daily quota limits (default 10,000 units/day).
 
 import logging
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from threading import Lock
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ class QuotaTracker:
             lambda: defaultdict(int)
         )
         self._lock = Lock()
-        self._reset_date: datetime | None = None
+        self._reset_date: str | None = None
+        self._daily_total: int = 0  # Cached daily total
 
     def _get_today_key(self) -> str:
         """Get today's date key in PST (YouTube quota resets at midnight PST)."""
@@ -66,6 +68,7 @@ class QuotaTracker:
                     if today not in self._usage:
                         self._usage = defaultdict(lambda: defaultdict(int))
                     self._reset_date = today
+                    self._daily_total = 0  # Reset cached total
                     logger.info("Quota tracker reset for new day: %s", today)
 
     def track(self, operation: str, count: int = 1) -> int:
@@ -79,21 +82,22 @@ class QuotaTracker:
             Cost in quota units
         """
         self._check_reset()
-        
+
         cost = self.QUOTA_COSTS.get(operation, 1) * count
         today = self._get_today_key()
-        
+
         with self._lock:
             self._usage[today][operation] += count
-        
+            self._daily_total += cost  # Update cached total
+
         logger.debug(
             "API call: %s x%d = %d units (total today: %d)",
             operation,
             count,
             cost,
-            self.get_daily_usage(),
+            self._daily_total,  # Use cached value
         )
-        
+
         return cost
 
     def get_daily_usage(self) -> int:
@@ -103,14 +107,8 @@ class QuotaTracker:
             Total units used today
         """
         self._check_reset()
-        today = self._get_today_key()
-        
-        total = 0
         with self._lock:
-            for op, count in self._usage.get(today, {}).items():
-                total += self.QUOTA_COSTS.get(op, 1) * count
-        
-        return total
+            return self._daily_total  # Return cached value
 
     def get_remaining_quota(self) -> int:
         """Get remaining quota for today.
@@ -128,12 +126,12 @@ class QuotaTracker:
         """
         self._check_reset()
         today = self._get_today_key()
-        
+
         with self._lock:
             today_usage = dict(self._usage.get(today, {}))
-        
+            total = self._daily_total  # Use cached value
+
         breakdown = {}
-        total = 0
         for op, count in today_usage.items():
             cost = self.QUOTA_COSTS.get(op, 1) * count
             breakdown[op] = {
@@ -141,8 +139,7 @@ class QuotaTracker:
                 "cost_per_call": self.QUOTA_COSTS.get(op, 1),
                 "total_cost": cost,
             }
-            total += cost
-        
+
         return {
             "date": today,
             "total_used": total,
@@ -168,6 +165,7 @@ class QuotaTracker:
 
 # Module-level singleton
 _quota_tracker: QuotaTracker | None = None
+_quota_tracker_lock = Lock()  # Lock for thread-safe singleton initialization
 
 
 def get_quota_tracker() -> QuotaTracker:
@@ -178,5 +176,7 @@ def get_quota_tracker() -> QuotaTracker:
     """
     global _quota_tracker
     if _quota_tracker is None:
-        _quota_tracker = QuotaTracker()
+        with _quota_tracker_lock:  # Double-checked locking
+            if _quota_tracker is None:
+                _quota_tracker = QuotaTracker()
     return _quota_tracker

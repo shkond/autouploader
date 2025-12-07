@@ -196,8 +196,6 @@ class QueueWorker:
         Returns:
             Dict with skip (bool), reason (str), and optionally video_id/video_url
         """
-        from datetime import timedelta
-
         from sqlalchemy import select
 
         from app.database import get_db_context
@@ -227,9 +225,11 @@ class QueueWorker:
                         "Video %s verified within 24h, skipping",
                         history.youtube_video_id,
                     )
+                    # Calculate hours ago using total_seconds() to include days
+                    hours_ago = int(time_since_verify.total_seconds() // 3600)
                     return {
                         "skip": True,
-                        "reason": f"Already uploaded (verified {time_since_verify.seconds // 3600}h ago)",
+                        "reason": f"Already uploaded (verified {hours_ago}h ago)",
                         "video_id": history.youtube_video_id,
                         "video_url": history.youtube_video_url,
                     }

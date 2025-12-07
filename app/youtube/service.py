@@ -1,8 +1,8 @@
 """YouTube service for video uploads."""
 
 import io
+import json
 import logging
-from functools import lru_cache
 from typing import Any
 
 from google.oauth2.credentials import Credentials
@@ -43,16 +43,15 @@ def _is_retryable_error(exception: BaseException) -> bool:
         if exception.resp.status in [403, 429]:
             error_reason = ""
             try:
-                import json
                 error_content = json.loads(exception.content.decode("utf-8"))
                 error_reason = (
                     error_content.get("error", {})
                     .get("errors", [{}])[0]
                     .get("reason", "")
                 )
-            except Exception as e:
+            except (json.JSONDecodeError, KeyError, IndexError, UnicodeDecodeError) as e:
                 logger.warning("Could not parse HttpError content for retry check: %s", e)
-            
+
             # Retry on quota/rate limit errors, but not on permission errors
             if error_reason in ["quotaExceeded", "rateLimitExceeded", "userRateLimitExceeded"]:
                 logger.warning(
@@ -61,11 +60,11 @@ def _is_retryable_error(exception: BaseException) -> bool:
                     error_reason,
                 )
                 return True
-            
+
             # 429 is always rate limit
             if exception.resp.status == 429:
                 return True
-    
+
     return False
 
 
@@ -87,6 +86,7 @@ class YouTubeService:
             credentials=credentials,
         )
         self.settings = get_settings()
+        self._uploads_playlist_cache: str | None = None  # Cache for uploads playlist ID
 
     def upload_video(
         self,
@@ -288,14 +288,17 @@ class YouTubeService:
             Channel information dict
         """
         quota_tracker = get_quota_tracker()
-        response = (
-            self.service.channels().list(part="snippet,statistics", mine=True).execute()
-        )
-        quota_tracker.track("channels.list")
-        items = response.get("items", [])
-        if items:
-            return items[0]
-        return {}
+        try:
+            response = (
+                self.service.channels().list(part="snippet,statistics", mine=True).execute()
+            )
+            items = response.get("items", [])
+            if items:
+                return items[0]
+            return {}
+        finally:
+            # Track quota even if request fails
+            quota_tracker.track("channels.list")
 
     def list_my_videos(self, max_results: int = 25) -> list[dict[str, Any]]:
         """List videos uploaded by the authenticated user.
@@ -345,13 +348,14 @@ class YouTubeService:
                 )
                 .execute()
             )
-            quota_tracker.track("videos.list")
             return len(response.get("items", [])) > 0
         except HttpError as e:
             logger.warning("Failed to check video %s: %s", video_id, e)
             return False
+        finally:
+            # Track quota even if request fails
+            quota_tracker.track("videos.list")
 
-    @lru_cache(maxsize=8)
     def _get_uploads_playlist_id(self) -> str | None:
         """Get the uploads playlist ID for the authenticated channel.
         
@@ -361,6 +365,10 @@ class YouTubeService:
         Returns:
             Uploads playlist ID or None if not found
         """
+        # Return cached value if available
+        if self._uploads_playlist_cache is not None:
+            return self._uploads_playlist_cache
+
         quota_tracker = get_quota_tracker()
         try:
             response = (
@@ -371,21 +379,25 @@ class YouTubeService:
                 )
                 .execute()
             )
-            quota_tracker.track("channels.list")
-            
+
             items = response.get("items", [])
             if not items:
                 return None
-            
-            return (
+
+            playlist_id = (
                 items[0]
                 .get("contentDetails", {})
                 .get("relatedPlaylists", {})
                 .get("uploads")
             )
+            self._uploads_playlist_cache = playlist_id  # Cache the result
+            return playlist_id
         except HttpError as e:
             logger.warning("Failed to get uploads playlist: %s", e)
             return None
+        finally:
+            # Track quota even if request fails
+            quota_tracker.track("channels.list")
 
     def list_my_videos_optimized(
         self, max_results: int = 25
@@ -402,13 +414,13 @@ class YouTubeService:
             List of video information dicts
         """
         quota_tracker = get_quota_tracker()
-        
+
         # Get uploads playlist ID
         playlist_id = self._get_uploads_playlist_id()
         if not playlist_id:
             logger.warning("Could not get uploads playlist, falling back to search")
             return self.list_my_videos(max_results)
-        
+
         try:
             response = (
                 self.service.playlistItems()
@@ -419,11 +431,13 @@ class YouTubeService:
                 )
                 .execute()
             )
-            quota_tracker.track("playlistItems.list")
             return response.get("items", [])
         except HttpError as e:
             logger.warning("Failed to list playlist items: %s", e)
             return []
+        finally:
+            # Track quota even if request fails
+            quota_tracker.track("playlistItems.list")
 
     def get_videos_batch(self, video_ids: list[str]) -> list[dict[str, Any]]:
         """Get information for multiple videos in a single request.
@@ -439,12 +453,12 @@ class YouTubeService:
         """
         if not video_ids:
             return []
-        
+
         quota_tracker = get_quota_tracker()
-        
+
         # YouTube API allows max 50 IDs per request
         batch_ids = video_ids[:50]
-        
+
         try:
             response = (
                 self.service.videos()
@@ -454,11 +468,13 @@ class YouTubeService:
                 )
                 .execute()
             )
-            quota_tracker.track("videos.list")
             return response.get("items", [])
         except HttpError as e:
             logger.warning("Failed to get videos batch: %s", e)
             return []
+        finally:
+            # Track quota even if request fails
+            quota_tracker.track("videos.list")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -486,23 +502,30 @@ class YouTubeService:
             UploadResult with video ID and URL
         """
         quota_tracker = get_quota_tracker()
-        
+
+        # Check if we have enough quota before attempting upload
+        if not quota_tracker.can_perform("videos.insert"):
+            logger.warning(
+                "Insufficient quota for upload: remaining=%d, required=1600",
+                quota_tracker.get_remaining_quota(),
+            )
+
         logger.info(
             "Starting upload with retry: %s (quota remaining: %d)",
             drive_file_id,
             quota_tracker.get_remaining_quota(),
         )
-        
+
         result = self.upload_from_drive(
             drive_file_id=drive_file_id,
             metadata=metadata,
             progress_callback=progress_callback,
         )
-        
+
         # Track the upload operation
         if result.success:
             quota_tracker.track("videos.insert")
-        
+
         return result
 
 
