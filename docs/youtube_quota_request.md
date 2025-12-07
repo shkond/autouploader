@@ -3,7 +3,7 @@
 ## Project Information
 
 **Application Name:** CloudVid Bridge  
-**Project ID:** [Your Google Cloud Project ID]  
+**Project ID:** youtubeupload-480401  
 **Current Quota:** 10,000 units/day  
 **Requested Quota:** 170,000 units/day  
 **Support Email:** konnkonn34@gmail.com  
@@ -108,8 +108,8 @@ Our application implements several optimization strategies to minimize API usage
 
 ### Privacy Policy & Terms of Service
 
-- **Privacy Policy:** https://shkond.github.io/autouploader/privacy
-- **Terms of Service:** https://shkond.github.io/autouploader/terms
+- **Privacy Policy:** https://shkond.github.io/CloudVid_Bridge/privacy.html
+- **Terms of Service:** https://shkond.github.io/CloudVid_Bridge/terms.html
 
 ### Test Mode Operation
 
@@ -150,7 +150,7 @@ This application operates in **Test Mode** with the following restrictions:
 ## Additional Information
 
 ### Repository
-- **GitHub:** https://github.com/shkond/autouploader (assumed, please update)
+- **GitHub:** https://github.com/shkond/CloudVid_Bridge
 - **Documentation:** Comprehensive README with architecture details
 - **Code Quality:** CI/CD pipeline with automated testing and linting
 
