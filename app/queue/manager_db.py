@@ -164,7 +164,7 @@ class QueueManagerDB:
         # Update fields
         if status is not None:
             model.status = status.value
-            if status == JobStatus.DOWNLOADING or status == JobStatus.UPLOADING:
+            if status in (JobStatus.DOWNLOADING, JobStatus.UPLOADING):
                 if model.started_at is None:
                     model.started_at = datetime.now(UTC)
             elif status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
