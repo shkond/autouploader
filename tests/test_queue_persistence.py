@@ -63,7 +63,7 @@ class TestQueuePersistence:
     @pytest.mark.asyncio
     async def test_job_persistence_across_sessions(self, test_engine):
         """Test jobs persist across different database sessions."""
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker
 
         from app.models import QueueJobModel
 
@@ -113,7 +113,7 @@ class TestQueuePersistence:
     @pytest.mark.asyncio
     async def test_job_restore_after_restart(self, test_engine):
         """Test jobs can be restored after simulated restart."""
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker
 
         from app.models import QueueJobModel
 
@@ -171,7 +171,7 @@ class TestQueueOperations:
         """Test FIFO order is maintained for pending jobs."""
         import asyncio
 
-        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker
 
         from app.models import QueueJobModel
 

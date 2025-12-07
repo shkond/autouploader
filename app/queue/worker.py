@@ -275,7 +275,6 @@ class QueueWorker:
             video_id: YouTube video ID
             video_url: YouTube video URL
         """
-        from datetime import datetime
 
         from app.database import get_db_context
         from app.models import UploadHistory

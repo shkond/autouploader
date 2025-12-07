@@ -138,7 +138,6 @@ class TestYouTubeServiceOptimization:
     @pytest.fixture
     def mock_youtube_service(self):
         """Create a mock YouTube service."""
-        from unittest.mock import MagicMock
 
         from google.oauth2.credentials import Credentials
 
