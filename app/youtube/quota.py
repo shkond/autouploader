@@ -52,7 +52,8 @@ class QuotaTracker:
         self._reset_date: str | None = None
         self._daily_total: int = 0  # Cached daily total
 
-    def _get_today_key(self) -> str:
+    @staticmethod
+    def _get_today_key() -> str:
         """Get today's date key in PST (YouTube quota resets at midnight PST)."""
         # YouTube quota resets at midnight Pacific Time.
         now = datetime.now(ZoneInfo("America/Los_Angeles"))

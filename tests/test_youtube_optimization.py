@@ -15,7 +15,8 @@ from googleapiclient.errors import HttpError
 class TestQuotaTracker:
     """Tests for QuotaTracker class."""
 
-    def test_track_usage(self):
+    @staticmethod
+    def test_track_usage():
         """Test tracking API usage."""
         from app.youtube.quota import QuotaTracker
 
@@ -30,7 +31,8 @@ class TestQuotaTracker:
         # videos.list=1, search.list=100, channels.list=1*2=2
         assert usage == 1 + 100 + 2
 
-    def test_get_remaining_quota(self):
+    @staticmethod
+    def test_get_remaining_quota():
         """Test remaining quota calculation."""
         from app.youtube.quota import QuotaTracker
 
@@ -42,7 +44,8 @@ class TestQuotaTracker:
         remaining = tracker.get_remaining_quota()
         assert remaining == 10000 - 1600
 
-    def test_can_perform_operation(self):
+    @staticmethod
+    def test_can_perform_operation():
         """Test checking if operation can be performed."""
         from app.youtube.quota import QuotaTracker
 
@@ -54,7 +57,8 @@ class TestQuotaTracker:
         # Cannot perform expensive operation that exceeds limit
         assert tracker.can_perform("videos.insert") is False
 
-    def test_get_usage_summary(self):
+    @staticmethod
+    def test_get_usage_summary():
         """Test getting usage summary."""
         from app.youtube.quota import QuotaTracker
 
@@ -70,7 +74,8 @@ class TestQuotaTracker:
         assert "breakdown" in summary
         assert summary["total_used"] == 5 * 1 + 2 * 100
 
-    def test_quota_costs(self):
+    @staticmethod
+    def test_quota_costs():
         """Test that quota costs are correctly defined."""
         from app.youtube.quota import QuotaTracker
 
@@ -83,7 +88,8 @@ class TestQuotaTracker:
 class TestRetryLogic:
     """Tests for retry logic helper functions."""
 
-    def test_is_retryable_error_quota_exceeded(self):
+    @staticmethod
+    def test_is_retryable_error_quota_exceeded():
         """Test that quota exceeded error is retryable."""
         from app.youtube.service import _is_retryable_error
 
@@ -95,7 +101,8 @@ class TestRetryLogic:
         error = HttpError(mock_resp, error_content)
         assert _is_retryable_error(error) is True
 
-    def test_is_retryable_error_rate_limit(self):
+    @staticmethod
+    def test_is_retryable_error_rate_limit():
         """Test that rate limit error is retryable."""
         from app.youtube.service import _is_retryable_error
 
@@ -107,7 +114,8 @@ class TestRetryLogic:
         error = HttpError(mock_resp, error_content)
         assert _is_retryable_error(error) is True
 
-    def test_is_retryable_error_auth_error(self):
+    @staticmethod
+    def test_is_retryable_error_auth_error():
         """Test that auth error is NOT retryable."""
         from app.youtube.service import _is_retryable_error
 
@@ -119,7 +127,8 @@ class TestRetryLogic:
         error = HttpError(mock_resp, error_content)
         assert _is_retryable_error(error) is False
 
-    def test_is_retryable_error_permission_denied(self):
+    @staticmethod
+    def test_is_retryable_error_permission_denied():
         """Test that permission denied (403 non-quota) is NOT retryable."""
         from app.youtube.service import _is_retryable_error
 
@@ -154,7 +163,8 @@ class TestYouTubeServiceOptimization:
             service._mock_api = mock_service
             yield service
 
-    def test_check_video_exists_on_youtube_found(self, mock_youtube_service):
+    @staticmethod
+    def test_check_video_exists_on_youtube_found(mock_youtube_service):
         """Test checking video exists returns True when found."""
         mock_youtube_service._mock_api.videos().list().execute.return_value = {
             "items": [{"id": "test-video-id"}]
@@ -163,7 +173,8 @@ class TestYouTubeServiceOptimization:
         result = mock_youtube_service.check_video_exists_on_youtube("test-video-id")
         assert result is True
 
-    def test_check_video_exists_on_youtube_not_found(self, mock_youtube_service):
+    @staticmethod
+    def test_check_video_exists_on_youtube_not_found(mock_youtube_service):
         """Test checking video exists returns False when not found."""
         mock_youtube_service._mock_api.videos().list().execute.return_value = {
             "items": []
@@ -172,12 +183,14 @@ class TestYouTubeServiceOptimization:
         result = mock_youtube_service.check_video_exists_on_youtube("nonexistent")
         assert result is False
 
-    def test_get_videos_batch_empty_list(self, mock_youtube_service):
+    @staticmethod
+    def test_get_videos_batch_empty_list(mock_youtube_service):
         """Test batch get with empty list returns empty."""
         result = mock_youtube_service.get_videos_batch([])
         assert result == []
 
-    def test_get_videos_batch_max_50(self, mock_youtube_service):
+    @staticmethod
+    def test_get_videos_batch_max_50(mock_youtube_service):
         """Test batch get limits to 50 videos."""
         mock_youtube_service._mock_api.videos().list().execute.return_value = {
             "items": [{"id": f"video-{i}"} for i in range(50)]
@@ -190,7 +203,8 @@ class TestYouTubeServiceOptimization:
         # Should only return max 50
         assert len(result) <= 50
 
-    def test_list_my_videos_optimized_uses_playlist_api(self, mock_youtube_service):
+    @staticmethod
+    def test_list_my_videos_optimized_uses_playlist_api(mock_youtube_service):
         """Test optimized list uses playlist API."""
         # Mock channel response with uploads playlist
         mock_youtube_service._mock_api.channels().list().execute.return_value = {
@@ -218,7 +232,8 @@ class TestYouTubeServiceOptimization:
 class TestQuotaSingleton:
     """Test quota tracker singleton behavior."""
 
-    def test_get_quota_tracker_returns_same_instance(self):
+    @staticmethod
+    def test_get_quota_tracker_returns_same_instance():
         """Test that get_quota_tracker returns singleton."""
         from app.youtube import quota
 

@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class TestTokenEncryption:
     """4.1 トークン暗号化テスト"""
 
-    def test_token_encryption(self):
+    @staticmethod
+    def test_token_encryption():
         """Test tokens are encrypted correctly."""
         from app.crypto import decrypt_token, encrypt_token
 
@@ -30,7 +31,8 @@ class TestTokenEncryption:
         decrypted = decrypt_token(encrypted)
         assert decrypted == original_token
 
-    def test_token_decryption(self):
+    @staticmethod
+    def test_token_decryption():
         """Test tokens can be decrypted and used."""
         from app.crypto import decrypt_token, encrypt_token
 
@@ -47,7 +49,8 @@ class TestTokenEncryption:
             decrypted = decrypt_token(encrypted)
             assert decrypted == original, f"Failed for token: {original}"
 
-    def test_refresh_token_encryption(self):
+    @staticmethod
+    def test_refresh_token_encryption():
         """Test refresh tokens are also encrypted."""
         from app.crypto import decrypt_token, encrypt_token
 
@@ -58,7 +61,8 @@ class TestTokenEncryption:
 
         assert decrypted == refresh_token
 
-    def test_encryption_uses_secret_key(self, clear_settings_cache):
+    @staticmethod
+    def test_encryption_uses_secret_key(clear_settings_cache):
         """Test encryption uses the configured secret key."""
         from app.crypto import encrypt_token
 
@@ -149,14 +153,16 @@ class TestTokenEncryption:
         # Refresh token should remain unchanged
         assert decrypt_token(token.encrypted_refresh_token) == "old_refresh_token"
 
-    def test_invalid_encrypted_data_raises_error(self):
+    @staticmethod
+    def test_invalid_encrypted_data_raises_error():
         """Test decryption fails gracefully for invalid data."""
         from app.crypto import decrypt_token
 
         with pytest.raises(Exception):
             decrypt_token("invalid-not-base64-encoded-data!!!")
 
-    def test_empty_token_handling(self):
+    @staticmethod
+    def test_empty_token_handling():
         """Test empty token handling."""
         from app.crypto import decrypt_token, encrypt_token
 
