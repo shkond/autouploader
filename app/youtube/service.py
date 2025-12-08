@@ -18,8 +18,8 @@ from tenacity import (
 
 from app.auth.oauth import get_oauth_service
 from app.config import get_settings
-from app.drive.service import get_drive_service
-from app.drive.service import DriveService
+from app.drive.service import DriveService, get_drive_service
+from app.exceptions import QuotaExceededError
 from app.youtube.quota import get_quota_tracker
 from app.youtube.schemas import (
     UploadProgress,
@@ -512,9 +512,9 @@ class YouTubeService:
 
         # Check if we have enough quota before attempting upload
         if not quota_tracker.can_perform("videos.insert"):
-            logger.warning(
-                "Insufficient quota for upload: remaining=%d, required=1600",
-                quota_tracker.get_remaining_quota(),
+            raise QuotaExceededError(
+                remaining=quota_tracker.get_remaining_quota(),
+                required=1600,
             )
 
         logger.info(

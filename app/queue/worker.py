@@ -5,13 +5,13 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from app.auth.oauth import get_oauth_service
 from app.config import get_settings
 
 # Removed: from app.queue.manager import get_queue_manager
 from app.queue.schemas import JobStatus, QueueJob
 from app.youtube.schemas import UploadProgress
 from app.youtube.service import YouTubeService
-from app.auth.oauth import get_oauth_service
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +50,26 @@ class QueueWorker:
         """Main processing loop."""
         from app.database import get_db_context
         from app.queue.manager_db import QueueManagerDB
+        from app.youtube.quota import get_quota_tracker
+
+        # Maximum wait time when quota exhausted (1 hour)
+        MAX_QUOTA_WAIT_SECONDS = 3600
 
         while self._running:
             try:
+                # Check quota before attempting to process any jobs
+                quota_tracker = get_quota_tracker()
+                if not quota_tracker.can_perform("videos.insert"):
+                    remaining_quota = quota_tracker.get_remaining_quota()
+                    logger.warning(
+                        "Quota exhausted (remaining=%d). "
+                        "Waiting %d seconds before checking again.",
+                        remaining_quota,
+                        MAX_QUOTA_WAIT_SECONDS,
+                    )
+                    await asyncio.sleep(MAX_QUOTA_WAIT_SECONDS)
+                    continue
+
                 async with get_db_context() as db:
                     # Check for pending jobs
                     active_jobs = await QueueManagerDB.get_active_jobs(db)

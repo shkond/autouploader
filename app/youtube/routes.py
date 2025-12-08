@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, Cookie, HTTPException, Query, status
 
-from app.youtube.schemas import UploadRequest, UploadResult, YouTubeVideo
 from app.auth.dependencies import check_app_auth, get_current_user_from_session
 from app.auth.oauth import get_oauth_service
+from app.youtube.schemas import UploadRequest, UploadResult, YouTubeVideo
 from app.youtube.service import YouTubeService
 
 router = APIRouter(prefix="/youtube", tags=["youtube"])
@@ -135,7 +135,7 @@ async def upload_video(request: UploadRequest, session_token: str | None = Cooki
             metadata=request.metadata,
             drive_credentials=credentials,
         )
-        
+
         return result
     except ValueError as e:
         raise HTTPException(

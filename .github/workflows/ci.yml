@@ -53,11 +53,11 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+          pytest tests/ -v -m "not slow" --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=80
         env:
           APP_ENV: test
           DEBUG: false
-          SECRET_KEY: test-secret-key
+          SECRET_KEY: test-secret-key-32-bytes-long!!
           GOOGLE_CLIENT_ID: test-client-id
           GOOGLE_CLIENT_SECRET: test-client-secret
 

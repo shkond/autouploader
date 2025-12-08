@@ -52,7 +52,7 @@ htmlcov/
 
 # MyPy
 .mypy_cache/
-
+autouploader.code-workspace
 # Logs
 *.log
 logs/
