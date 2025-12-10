@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+
+# Import timedelta for pre-upload check
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.auth.oauth import get_oauth_service
@@ -13,9 +15,6 @@ from app.queue.schemas import JobStatus, QueueJob
 from app.youtube.quota import get_quota_tracker
 from app.youtube.schemas import UploadProgress
 from app.youtube.service import YouTubeService
-
-# Import timedelta for pre-upload check
-from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 

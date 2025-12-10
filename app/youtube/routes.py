@@ -132,7 +132,7 @@ async def upload_video(request: UploadRequest, session_token: str | None = Cooki
         if not credentials:
             raise ValueError("Not authenticated with Google")
         service = YouTubeService(credentials)
-        result = service.upload_from_drive(
+        result = await service.upload_from_drive_async(
             drive_file_id=request.drive_file_id,
             metadata=request.metadata,
             drive_credentials=credentials,
