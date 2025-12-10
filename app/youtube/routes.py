@@ -4,6 +4,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Query, status
 
 from app.auth.dependencies import check_app_auth, get_current_user_from_session
 from app.auth.oauth import get_oauth_service
+from app.youtube.quota import get_quota_tracker
 from app.youtube.schemas import UploadRequest, UploadResult, YouTubeVideo
 from app.youtube.service import YouTubeService
 
@@ -49,6 +50,7 @@ async def list_my_videos(
     max_results: int = Query(
         default=25, ge=1, le=50, description="Max videos to return"
     ),
+    session_token: str | None = Cookie(None, alias="session"),
 ) -> list[YouTubeVideo]:
     """List videos uploaded by the authenticated user.
 
@@ -130,7 +132,7 @@ async def upload_video(request: UploadRequest, session_token: str | None = Cooki
         if not credentials:
             raise ValueError("Not authenticated with Google")
         service = YouTubeService(credentials)
-        result = service.upload_from_drive(
+        result = await service.upload_from_drive_async(
             drive_file_id=request.drive_file_id,
             metadata=request.metadata,
             drive_credentials=credentials,
@@ -157,8 +159,6 @@ async def get_quota_status() -> dict:
         Quota usage summary including daily usage, remaining quota,
         and breakdown by API operation.
     """
-    from app.youtube.quota import get_quota_tracker
-
     tracker = get_quota_tracker()
     return tracker.get_usage_summary()
 

@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def mock_session_manager():
     """Mock session manager for auth tests."""
-    with patch("app.auth.routes.get_session_manager") as mock:
+    with patch("app.auth.dependencies.get_session_manager") as mock:
         manager = MagicMock()
         mock.return_value = manager
         yield manager
@@ -52,7 +52,7 @@ class TestLoginPage:
 
     def test_login_page_renders(self, test_client, mock_session_manager):
         """Test that login page renders successfully."""
-        mock_session_manager.verify_session.return_value = None
+        mock_session_manager.verify_session_token.return_value = None
 
         response = test_client.get("/auth/login")
 
@@ -63,7 +63,7 @@ class TestLoginPage:
         self, test_client, mock_session_manager
     ):
         """Test that authenticated users are redirected to dashboard."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -120,7 +120,7 @@ class TestDashboard:
 
     def test_dashboard_requires_auth(self, test_client, mock_session_manager):
         """Test that dashboard redirects unauthenticated users to login."""
-        mock_session_manager.verify_session.return_value = None
+        mock_session_manager.verify_session_token.return_value = None
 
         response = test_client.get(
             "/auth/dashboard",
@@ -134,7 +134,7 @@ class TestDashboard:
         self, test_client, mock_session_manager, mock_oauth_service
     ):
         """Test that dashboard renders for authenticated users."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -157,7 +157,7 @@ class TestGoogleOAuth:
         self, test_client, mock_session_manager, mock_oauth_service
     ):
         """Test that Google login redirects to OAuth URL."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -179,7 +179,7 @@ class TestGoogleOAuth:
         self, test_client, mock_session_manager
     ):
         """Test that Google login requires app authentication first."""
-        mock_session_manager.verify_session.return_value = None
+        mock_session_manager.verify_session_token.return_value = None
 
         response = test_client.get(
             "/auth/google",
@@ -193,7 +193,7 @@ class TestGoogleOAuth:
         self, test_client, mock_session_manager, mock_oauth_service
     ):
         """Test successful OAuth callback."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -217,7 +217,7 @@ class TestAuthStatus:
         self, test_client, mock_session_manager
     ):
         """Test auth status returns false when not authenticated."""
-        mock_session_manager.verify_session.return_value = None
+        mock_session_manager.verify_session_token.return_value = None
 
         response = test_client.get("/auth/status")
 
@@ -228,7 +228,7 @@ class TestAuthStatus:
         self, test_client, mock_session_manager, mock_oauth_service
     ):
         """Test auth status returns user info when authenticated."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -262,7 +262,7 @@ class TestLogout:
         self, test_client, mock_session_manager, mock_oauth_service
     ):
         """Test that logout clears session and redirects to login."""
-        mock_session_manager.verify_session.return_value = {
+        mock_session_manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }

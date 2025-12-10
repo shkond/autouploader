@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+
+# Import timedelta for pre-upload check
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.auth.oauth import get_oauth_service
@@ -10,6 +12,7 @@ from app.config import get_settings
 
 # Removed: from app.queue.manager import get_queue_manager
 from app.queue.schemas import JobStatus, QueueJob
+from app.youtube.quota import get_quota_tracker
 from app.youtube.schemas import UploadProgress
 from app.youtube.service import YouTubeService
 
@@ -50,7 +53,6 @@ class QueueWorker:
         """Main processing loop."""
         from app.database import get_db_context
         from app.queue.manager_db import QueueManagerDB
-        from app.youtube.quota import get_quota_tracker
 
         # Maximum wait time when quota exhausted (1 hour)
         MAX_QUOTA_WAIT_SECONDS = 3600
@@ -134,7 +136,7 @@ class QueueWorker:
             # Pre-upload check: validate file size from Drive metadata
             from app.drive.service import DriveService
             drive_service = DriveService(credentials)
-            file_info = drive_service.get_file_metadata(job.drive_file_id)
+            file_info = await drive_service.get_file_metadata(job.drive_file_id)
             file_size = int(file_info.get("size", 0))
 
             settings = get_settings()

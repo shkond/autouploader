@@ -17,6 +17,8 @@ eggs/
 lib/
 lib64/
 parts/
+test.txt
+.ruff_cache/
 sdist/
 var/
 wheels/

@@ -24,7 +24,7 @@ def mock_session_manager():
     """Mock session manager for queue tests."""
     with patch("app.auth.dependencies.get_session_manager") as mock:
         manager = MagicMock()
-        manager.verify_session.return_value = {
+        manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -71,7 +71,7 @@ class TestQueueStatus:
     def test_get_queue_status_requires_auth(self, test_client):
         """Test that queue status requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.get("/queue/status")
 
@@ -110,7 +110,7 @@ class TestListJobs:
     def test_list_jobs_requires_auth(self, test_client):
         """Test that list jobs requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.get("/queue/jobs")
 
@@ -150,7 +150,7 @@ class TestAddJob:
     def test_add_job_requires_auth(self, test_client):
         """Test that add job requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.post(
                 "/queue/jobs",
@@ -209,7 +209,7 @@ class TestGetJob:
     def test_get_job_requires_auth(self, test_client, sample_job_id):
         """Test that get job requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.get(f"/queue/jobs/{sample_job_id}")
 
@@ -240,7 +240,7 @@ class TestCancelJob:
     def test_cancel_job_requires_auth(self, test_client, sample_job_id):
         """Test that cancel job requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.post(f"/queue/jobs/{sample_job_id}/cancel")
 
@@ -281,7 +281,7 @@ class TestDeleteJob:
     def test_delete_job_requires_auth(self, test_client, sample_job_id):
         """Test that delete job requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.delete(f"/queue/jobs/{sample_job_id}")
 
@@ -317,7 +317,7 @@ class TestClearCompleted:
     def test_clear_completed_requires_auth(self, test_client):
         """Test that clear completed requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.delete("/queue/jobs/completed")
 

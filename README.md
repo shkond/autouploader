@@ -350,3 +350,24 @@ This project includes newly implemented YouTube API quota optimizations and erro
 - **Quota Tracking**: A `QuotaTracker` is available to monitor daily usage and estimated remaining quota via the `/youtube/quota` endpoint.
 - **Pre-upload Verification**: Worker pre-upload checks verify existence of videos on YouTube and updates `last_verified_at` to reduce duplicate uploads.
 
+## Changelog
+
+- **2025-12-08** (d498011 — konn41): Add tests and improved error handling.
+- **2025-12-07** (55971b9 — konn41): Fix Error 500 responses and edge-case handlers.
+- **2025-12-07**: Multiple refactors and autofixes from deepsource to improve code quality.
+- **2025-12-07** (942f253 — deepsource-io[bot]): Add .deepsource.toml and quality-check CI config.
+- **2025-12-07**: Documentation updates and configuration fixes for Heroku port settings.
+- **2025-12-07** (313cca5 — shkondo): Add detailed API usage justification document.
+- **2025-12-07** (cf856f7 — shkondo): Add YouTube Data API quota request documentation.
+- **2025-12-07** (489f609 — konn41): YouTube API optimization and quota tracking improvements.
+- **2025-12-06** (f436fd4 — copilot-swe-agent[bot]): Add docs/index.md for GitHub Pages and docs improvements.
+- **2025-11-30** (86ea20b, 6dcecc4 — copilot-swe-agent[bot]): Add FastAPI backend for Drive->YouTube upload and address code review feedback and security fixes.
+- **2025-11-30** (2865c19 — shkondo): Initial commit and project scaffold.
+
+## Contributors
+
+- shkondo — Project maintainer
+- konn41 — Feature contributions and testing
+- copilot-swe-agent[bot] — Initial implementation, CI, and docs PRs
+- deepsource-io[bot] — Static analysis and refactor suggestions
+

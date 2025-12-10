@@ -20,7 +20,7 @@ def mock_session_manager():
     """Mock session manager for youtube tests."""
     with patch("app.auth.dependencies.get_session_manager") as mock:
         manager = MagicMock()
-        manager.verify_session.return_value = {
+        manager.verify_session_token.return_value = {
             "username": "testuser",
             "user_id": "user123",
         }
@@ -84,7 +84,7 @@ class TestGetChannelInfo:
     def test_get_channel_info_requires_auth(self, test_client):
         """Test that channel info requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.get("/youtube/channel")
 
@@ -178,7 +178,7 @@ class TestUploadVideo:
     def test_upload_video_requires_auth(self, test_client):
         """Test that upload requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.post(
                 "/youtube/upload",
@@ -255,7 +255,7 @@ class TestCheckVideoExists:
     def test_check_video_exists_requires_auth(self, test_client):
         """Test that check video exists requires authentication."""
         with patch("app.auth.dependencies.get_session_manager") as mock:
-            mock.return_value.verify_session.return_value = None
+            mock.return_value.verify_session_token.return_value = None
 
             response = test_client.get("/youtube/video/video123/exists")
 
