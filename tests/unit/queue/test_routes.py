@@ -11,7 +11,7 @@ Tests for:
 - Worker control endpoints
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -59,8 +59,8 @@ def mock_queue_worker():
 @pytest.fixture
 def test_client_with_mocks(mock_queue_repo):
     """Create test client with mocked dependencies."""
-    from app.main import app
     from app.core.dependencies import get_queue_repository, get_user_id_from_session
+    from app.main import app
 
     # Override dependencies
     async def override_queue_repo():
@@ -102,7 +102,7 @@ def sample_job():
         status=JobStatus.PENDING,
         progress=0.0,
         user_id="test_user_123",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         metadata=VideoMetadata(
             title="Test Video",
             description="Test description",

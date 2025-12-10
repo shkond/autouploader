@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 
 if TYPE_CHECKING:
+    from app.auth.oauth import OAuthService
     from app.drive.services import DriveService
     from app.queue.repositories import QueueRepository
     from app.queue.services import QueueService
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
 
 async def get_user_credentials(
     session_token: str | None = Cookie(None, alias="session"),
-) -> "Credentials":
+) -> Credentials:
     """Get Google OAuth credentials for the current user.
 
     This dependency extracts the user_id from the session and retrieves
@@ -85,7 +86,7 @@ async def get_user_credentials(
 
 async def get_optional_credentials(
     session_token: str | None = Cookie(None, alias="session"),
-) -> "Credentials | None":
+) -> Credentials | None:
     """Get Google OAuth credentials if available (non-throwing version).
 
     Args:
@@ -114,14 +115,79 @@ async def get_optional_credentials(
     return await oauth_service.get_credentials(user_id)
 
 
+def get_oauth_service_dep() -> OAuthService:
+    """Get OAuthService instance.
+
+    Returns:
+        OAuthService singleton instance
+    """
+    from app.auth.oauth import get_oauth_service
+
+    return get_oauth_service()
+
+
+async def get_session_data(
+    session_token: str | None = Cookie(None, alias="session"),
+) -> dict | None:
+    """Get session data from session token.
+
+    Args:
+        session_token: Session cookie value
+
+    Returns:
+        Session data dict or None if not authenticated
+    """
+    from app.auth.simple_auth import get_session_manager
+
+    if not session_token:
+        return None
+
+    session_manager = get_session_manager()
+    return session_manager.verify_session_token(session_token)
+
+
+async def require_session(
+    session_token: str | None = Cookie(None, alias="session"),
+) -> dict:
+    """Require valid session, raising HTTPException if not authenticated.
+
+    Args:
+        session_token: Session cookie value
+
+    Returns:
+        Session data dict
+
+    Raises:
+        HTTPException: If not authenticated
+    """
+    from app.auth.simple_auth import get_session_manager
+
+    if not session_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    session_manager = get_session_manager()
+    session_data = session_manager.verify_session_token(session_token)
+
+    if not session_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired",
+        )
+
+    return session_data
+
+
 # =============================================================================
 # Service Dependencies
 # =============================================================================
 
 
 async def get_drive_service(
-    credentials: "Credentials" = Depends(get_user_credentials),
-) -> "DriveService":
+    credentials: Credentials = Depends(get_user_credentials),
+) -> DriveService:
     """Get DriveService instance with user credentials.
 
     Args:
@@ -136,8 +202,8 @@ async def get_drive_service(
 
 
 async def get_youtube_service(
-    credentials: "Credentials" = Depends(get_user_credentials),
-) -> "YouTubeService":
+    credentials: Credentials = Depends(get_user_credentials),
+) -> YouTubeService:
     """Get YouTubeService instance with user credentials.
 
     Args:
@@ -152,8 +218,8 @@ async def get_youtube_service(
 
 
 async def get_drive_service_from_credentials(
-    credentials: "Credentials",
-) -> "DriveService":
+    credentials: Credentials,
+) -> DriveService:
     """Get DriveService from explicit credentials (for worker/background tasks).
 
     Args:
@@ -168,8 +234,8 @@ async def get_drive_service_from_credentials(
 
 
 async def get_youtube_service_from_credentials(
-    credentials: "Credentials",
-) -> "YouTubeService":
+    credentials: Credentials,
+) -> YouTubeService:
     """Get YouTubeService from explicit credentials (for worker/background tasks).
 
     Args:
@@ -190,7 +256,7 @@ async def get_youtube_service_from_credentials(
 
 async def get_queue_repository(
     db: AsyncSession = Depends(get_db),
-) -> AsyncGenerator["QueueRepository", None]:
+) -> AsyncGenerator[QueueRepository, None]:
     """Get QueueRepository instance with database session.
 
     Args:
@@ -206,7 +272,7 @@ async def get_queue_repository(
 
 async def get_queue_service(
     db: AsyncSession = Depends(get_db),
-) -> AsyncGenerator["QueueService", None]:
+) -> AsyncGenerator[QueueService, None]:
     """Get QueueService instance with database session.
 
     Args:

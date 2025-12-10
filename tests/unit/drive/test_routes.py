@@ -7,7 +7,7 @@ Tests for:
 - Upload folder endpoint
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import status
@@ -42,9 +42,9 @@ def mock_queue_repo():
 @pytest.fixture
 def test_client_with_mocks(mock_drive_service, mock_queue_repo):
     """Create test client with mocked dependencies."""
-    from app.main import app
     from app.core.dependencies import get_drive_service, get_user_id_from_session
     from app.database import get_db
+    from app.main import app
 
     # Override dependencies
     async def override_drive_service():

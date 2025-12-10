@@ -11,11 +11,10 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from google.oauth2.credentials import Credentials
-    from sqlalchemy.ext.asyncio import AsyncSession
 
     from app.drive.schemas import DriveFile, DriveFolder
     from app.queue.schemas import JobStatus, QueueJob, QueueJobCreate, QueueStatus
-    from app.youtube.schemas import UploadProgress, UploadResult, VideoMetadata
+    from app.youtube.schemas import UploadResult, VideoMetadata
 
 
 class DriveRepositoryProtocol(Protocol):

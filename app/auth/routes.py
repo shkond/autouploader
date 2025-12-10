@@ -2,14 +2,22 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter, Cookie, Form, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.auth.dependencies import check_app_auth, get_current_user_from_session
-from app.auth.oauth import get_oauth_service
+from app.auth.oauth import OAuthService
 from app.auth.schemas import AuthStatus, UserInfo
 from app.auth.simple_auth import get_session_manager
+from app.core.dependencies import get_oauth_service_dep, get_session_data
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -22,20 +30,20 @@ templates = Jinja2Templates(directory=str(templates_dir))
 async def login_page(
     request: Request,
     error: str = Query(None),
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
 ) -> HTMLResponse:
     """Display login page or redirect if already authenticated.
 
     Args:
         request: FastAPI request
         error: Optional error message to display
-        session_token: Session cookie
+        session_data: Session data (injected via DI)
 
     Returns:
         Login page HTML or redirect to dashboard
     """
     # If already authenticated, redirect to dashboard
-    if check_app_auth(session_token):
+    if session_data:
         return RedirectResponse(url="/auth/dashboard", status_code=status.HTTP_303_SEE_OTHER)
 
     return templates.TemplateResponse(
@@ -83,26 +91,26 @@ async def login_submit(
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(
     request: Request,
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
+    oauth_service: OAuthService = Depends(get_oauth_service_dep),
 ) -> HTMLResponse:
     """Display dashboard page.
 
     Args:
         request: FastAPI request
-        session_token: Session cookie
+        session_data: Session data (injected via DI)
+        oauth_service: OAuth service (injected via DI)
 
     Returns:
         Dashboard page HTML or redirect to login
     """
-    session_data = check_app_auth(session_token)
     if not session_data:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
     # Get user_id from session
-    user_id = get_current_user_from_session(session_data)
+    user_id = session_data.get("user_id") or session_data.get("username")
 
     # Check Google auth status
-    oauth_service = get_oauth_service()
     google_authenticated = await oauth_service.is_authenticated(user_id)
     google_user = None
 
@@ -122,21 +130,22 @@ async def dashboard_page(
 
 @router.get("/google")
 async def google_login(
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
+    oauth_service: OAuthService = Depends(get_oauth_service_dep),
 ) -> RedirectResponse:
     """Redirect to Google OAuth authorization.
 
     Args:
-        session_token: Session cookie (must be authenticated)
+        session_data: Session data (injected via DI)
+        oauth_service: OAuth service (injected via DI)
 
     Returns:
         Redirect to Google OAuth URL
     """
     # Require app authentication first
-    if not check_app_auth(session_token):
+    if not session_data:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    oauth_service = get_oauth_service()
     auth_url, _ = oauth_service.get_authorization_url()
     return RedirectResponse(url=auth_url, status_code=status.HTTP_303_SEE_OTHER)
 
@@ -145,26 +154,25 @@ async def google_login(
 async def callback(
     code: str = Query(..., description="Authorization code from Google"),
     state: str = Query(None, description="OAuth state parameter"),
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
+    oauth_service: OAuthService = Depends(get_oauth_service_dep),
 ) -> RedirectResponse:
     """Handle OAuth callback from Google.
 
     Args:
         code: Authorization code
         state: OAuth state parameter
-        session_token: Session cookie
+        session_data: Session data (injected via DI)
+        oauth_service: OAuth service (injected via DI)
 
     Returns:
         Redirect to dashboard on success
     """
-    # Get user_id from session
-    session_data = check_app_auth(session_token)
     if not session_data:
         return RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
 
-    user_id = get_current_user_from_session(session_data)
+    user_id = session_data.get("user_id") or session_data.get("username")
 
-    oauth_service = get_oauth_service()
     try:
         await oauth_service.exchange_code(code, user_id, state)
         return RedirectResponse(url="/auth/dashboard", status_code=status.HTTP_303_SEE_OTHER)
@@ -177,22 +185,22 @@ async def callback(
 
 @router.get("/status", response_model=AuthStatus)
 async def auth_status(
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
+    oauth_service: OAuthService = Depends(get_oauth_service_dep),
 ) -> AuthStatus:
     """Check current authentication status.
 
     Args:
-        session_token: Session cookie
+        session_data: Session data (injected via DI)
+        oauth_service: OAuth service (injected via DI)
 
     Returns:
         AuthStatus with authentication state and user info
     """
-    session_data = check_app_auth(session_token)
     if not session_data:
         return AuthStatus(authenticated=False)
 
-    user_id = get_current_user_from_session(session_data)
-    oauth_service = get_oauth_service()
+    user_id = session_data.get("user_id") or session_data.get("username")
 
     if not await oauth_service.is_authenticated(user_id):
         return AuthStatus(authenticated=False)
@@ -215,22 +223,23 @@ async def auth_status(
 
 @router.get("/logout")
 async def logout(
-    session_token: str | None = Cookie(None, alias="session"),
+    session_data: dict | None = Depends(get_session_data),
+    oauth_service: OAuthService = Depends(get_oauth_service_dep),
 ) -> RedirectResponse:
     """Logout and clear stored credentials.
 
     Args:
-        session_token: Session cookie
+        session_data: Session data (injected via DI)
+        oauth_service: OAuth service (injected via DI)
 
     Returns:
         Redirect to login page
     """
-    session_data = check_app_auth(session_token)
     if session_data:
-        user_id = get_current_user_from_session(session_data)
-        oauth_service = get_oauth_service()
+        user_id = session_data.get("user_id") or session_data.get("username")
         await oauth_service.logout(user_id)
 
     response = RedirectResponse(url="/auth/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(key="session")
     return response
+

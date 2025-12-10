@@ -69,8 +69,8 @@ def mock_quota_tracker():
 @pytest.fixture
 def test_client_with_mocks(mock_youtube_service, mock_credentials):
     """Create test client with mocked dependencies."""
+    from app.core.dependencies import get_user_credentials, get_youtube_service
     from app.main import app
-    from app.core.dependencies import get_youtube_service, get_user_credentials
 
     # Override dependencies
     async def override_youtube_service():
