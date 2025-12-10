@@ -13,6 +13,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from app.drive.schemas import DriveFile, FileType
+
 
 @pytest.fixture
 def mock_session_manager():
@@ -45,6 +47,12 @@ def mock_drive_service():
     """Mock Drive service for tests."""
     with patch("app.drive.routes.DriveService") as mock:
         service = MagicMock()
+        # Mock async methods with AsyncMock
+        service.list_files = AsyncMock(return_value=[])
+        service.scan_folder = AsyncMock()
+        service.get_file_metadata = AsyncMock(return_value={})
+        service.get_folder_info = AsyncMock(return_value={})
+        service.get_all_videos_flat = AsyncMock(return_value=[])
         mock.return_value = service
         yield service
 
@@ -73,20 +81,22 @@ class TestListFiles:
         self, test_client, mock_session_manager, mock_oauth_service, mock_drive_service
     ):
         """Test successful file listing."""
-        mock_drive_service.list_files.return_value = [
-            {
-                "id": "file1",
-                "name": "video1.mp4",
-                "mimeType": "video/mp4",
-                "size": "1024",
-            },
-            {
-                "id": "file2",
-                "name": "video2.mp4",
-                "mimeType": "video/mp4",
-                "size": "2048",
-            },
-        ]
+        mock_drive_service.list_files = AsyncMock(return_value=[
+            DriveFile(
+                id="file1",
+                name="video1.mp4",
+                mimeType="video/mp4",
+                size=1024,
+                file_type=FileType.VIDEO,
+            ),
+            DriveFile(
+                id="file2",
+                name="video2.mp4",
+                mimeType="video/mp4",
+                size=2048,
+                file_type=FileType.VIDEO,
+            ),
+        ])
 
         response = test_client.get(
             "/drive/files?folder_id=root&video_only=true",
@@ -101,7 +111,7 @@ class TestListFiles:
         self, test_client, mock_session_manager, mock_oauth_service, mock_drive_service
     ):
         """Test listing empty folder."""
-        mock_drive_service.list_files.return_value = []
+        mock_drive_service.list_files = AsyncMock(return_value=[])
 
         response = test_client.get(
             "/drive/files?folder_id=empty-folder",
@@ -120,16 +130,15 @@ class TestScanFolder:
         self, test_client, mock_session_manager, mock_oauth_service, mock_drive_service
     ):
         """Test successful folder scan."""
-        mock_drive_service.list_files.return_value = [
-            {
-                "id": "file1",
-                "name": "video1.mp4",
-                "mimeType": "video/mp4",
-                "size": "1024",
-                "md5Checksum": "abc123",
-            },
-        ]
-        mock_drive_service.get_folder_path.return_value = "/My Videos"
+        from app.drive.schemas import DriveFolder
+
+        mock_drive_service.scan_folder = AsyncMock(return_value=DriveFolder(
+            id="folder123",
+            name="Test Folder",
+            files=[],
+            subfolders=[],
+            total_videos=1,
+        ))
 
         response = test_client.post(
             "/drive/scan",
@@ -160,13 +169,13 @@ class TestGetFileInfo:
         self, test_client, mock_session_manager, mock_oauth_service, mock_drive_service
     ):
         """Test getting file info successfully."""
-        mock_drive_service.get_file_metadata.return_value = {
+        mock_drive_service.get_file_metadata = AsyncMock(return_value={
             "id": "file123",
             "name": "test_video.mp4",
             "mimeType": "video/mp4",
             "size": "10485760",
             "md5Checksum": "abc123def456",
-        }
+        })
 
         response = test_client.get(
             "/drive/files/file123",
@@ -184,10 +193,10 @@ class TestGetFileInfo:
         import httplib2
         from googleapiclient.errors import HttpError
 
-        mock_drive_service.get_file_metadata.side_effect = HttpError(
+        mock_drive_service.get_file_metadata = AsyncMock(side_effect=HttpError(
             httplib2.Response({"status": 404}),
             b'{"error": {"message": "File not found"}}',
-        )
+        ))
 
         response = test_client.get(
             "/drive/files/nonexistent",
@@ -223,23 +232,26 @@ class TestUploadFolder:
         self, test_client, mock_session_manager, mock_oauth_service, mock_drive_service
     ):
         """Test bulk folder upload."""
-        mock_drive_service.list_files.return_value = [
-            {
-                "id": "file1",
-                "name": "video1.mp4",
-                "mimeType": "video/mp4",
-                "size": "1024",
-                "md5Checksum": "hash1",
-            },
-            {
-                "id": "file2",
-                "name": "video2.mp4",
-                "mimeType": "video/mp4",
-                "size": "2048",
-                "md5Checksum": "hash2",
-            },
-        ]
-        mock_drive_service.get_folder_path.return_value = "/My Videos"
+        from app.drive.schemas import DriveFile, FileType
+
+        mock_drive_service.list_files = AsyncMock(return_value=[
+            DriveFile(
+                id="file1",
+                name="video1.mp4",
+                mimeType="video/mp4",
+                size=1024,
+                file_type=FileType.VIDEO,
+            ),
+            DriveFile(
+                id="file2",
+                name="video2.mp4",
+                mimeType="video/mp4",
+                size=2048,
+                file_type=FileType.VIDEO,
+            ),
+        ])
+        mock_drive_service.get_folder_info = AsyncMock(return_value={"id": "folder123", "name": "My Videos"})
+        mock_drive_service.get_all_videos_flat = AsyncMock(return_value=[])
 
         # Mock database session
         with patch("app.drive.routes.get_db") as mock_db:

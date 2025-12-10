@@ -55,7 +55,7 @@ async def list_files(
             raise ValueError("Not authenticated with Google")
 
         service = DriveService(credentials)
-        return service.list_files(folder_id, video_only)
+        return await service.list_files(folder_id, video_only)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -96,7 +96,7 @@ async def scan_folder(
             raise ValueError("Not authenticated with Google")
 
         service = DriveService(credentials)
-        folder = service.scan_folder(
+        folder = await service.scan_folder(
             folder_id=request.folder_id,
             recursive=request.recursive,
             video_only=request.video_only,
@@ -142,7 +142,7 @@ async def get_file_info(file_id: str, session_token: str | None = Cookie(None, a
             raise ValueError("Not authenticated with Google")
 
         service = DriveService(credentials)
-        return service.get_file_metadata(file_id)
+        return await service.get_file_metadata(file_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -202,14 +202,14 @@ async def upload_folder(
         if request.folder_id == "root":
             folder_name = "My Drive"
         else:
-            folder_info = drive_service.get_folder_info(request.folder_id)
+            folder_info = await drive_service.get_folder_info(request.folder_id)
             folder_name = folder_info["name"]
 
         # Generate batch ID
         batch_id = str(uuid.uuid4())
 
         # Get all videos in folder
-        video_files = drive_service.get_all_videos_flat(
+        video_files = await drive_service.get_all_videos_flat(
             folder_id=request.folder_id,
             recursive=request.recursive,
             max_files=request.max_files,

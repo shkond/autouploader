@@ -1,8 +1,13 @@
-"""Google Drive service for file operations."""
+"""Google Drive service for file operations.
+
+Provides async methods for interacting with Google Drive API.
+Uses AnyIO's run_sync to execute blocking Google API calls in a thread pool.
+"""
 
 import io
 from typing import Any
 
+from anyio.to_thread import run_sync
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -25,7 +30,11 @@ VIDEO_MIME_TYPES = {
 
 
 class DriveService:
-    """Service for interacting with Google Drive API."""
+    """Service for interacting with Google Drive API.
+    
+    All public methods are async to avoid blocking the event loop.
+    Uses AnyIO's run_sync to execute blocking Google API calls in a thread pool.
+    """
 
     def __init__(self, credentials: Credentials) -> None:
         """Initialize Drive service with credentials.
@@ -35,7 +44,21 @@ class DriveService:
         """
         self.service = build("drive", "v3", credentials=credentials)
 
-    def list_files(
+    async def _execute_async(self, request: Any, cancellable: bool = True) -> Any:
+        """Execute a Google API request asynchronously.
+        
+        Wraps the blocking execute() call in run_sync to avoid blocking the event loop.
+        
+        Args:
+            request: Google API request object with execute() method
+            cancellable: Whether the operation can be cancelled (default: True)
+            
+        Returns:
+            API response
+        """
+        return await run_sync(request.execute, cancellable=cancellable)
+
+    async def list_files(
         self,
         folder_id: str = "root",
         video_only: bool = True,
@@ -68,17 +91,14 @@ class DriveService:
         page_token = None
 
         while True:
-            response = (
-                self.service.files()
-                .list(
-                    q=query,
-                    pageSize=page_size,
-                    fields=fields,
-                    pageToken=page_token,
-                    orderBy="name",
-                )
-                .execute()
+            request = self.service.files().list(
+                q=query,
+                pageSize=page_size,
+                fields=fields,
+                pageToken=page_token,
+                orderBy="name",
             )
+            response = await self._execute_async(request)
 
             for item in response.get("files", []):
                 file_type = self._determine_file_type(item.get("mimeType", ""))
@@ -107,7 +127,7 @@ class DriveService:
 
         return files
 
-    def get_folder_info(self, folder_id: str) -> dict[str, Any]:
+    async def get_folder_info(self, folder_id: str) -> dict[str, Any]:
         """Get folder metadata.
 
         Args:
@@ -116,13 +136,10 @@ class DriveService:
         Returns:
             Folder metadata dict
         """
-        return (
-            self.service.files()
-            .get(fileId=folder_id, fields="id, name, mimeType")
-            .execute()
-        )
+        request = self.service.files().get(fileId=folder_id, fields="id, name, mimeType")
+        return await self._execute_async(request)
 
-    def scan_folder(
+    async def scan_folder(
         self,
         folder_id: str = "root",
         recursive: bool = False,
@@ -142,10 +159,10 @@ class DriveService:
         if folder_id == "root":
             folder_info = {"id": "root", "name": "My Drive"}
         else:
-            folder_info = self.get_folder_info(folder_id)
+            folder_info = await self.get_folder_info(folder_id)
 
         # List files
-        files = self.list_files(folder_id, video_only)
+        files = await self.list_files(folder_id, video_only)
 
         # Separate videos and folders
         video_files = [f for f in files if f.file_type == FileType.VIDEO]
@@ -156,7 +173,7 @@ class DriveService:
 
         if recursive:
             for subfolder_file in folder_files:
-                subfolder = self.scan_folder(
+                subfolder = await self.scan_folder(
                     subfolder_file.id, recursive=True, video_only=video_only
                 )
                 subfolders.append(subfolder)
@@ -174,6 +191,9 @@ class DriveService:
         self, file_id: str
     ) -> tuple[io.BytesIO, MediaIoBaseDownload]:
         """Get a file content stream for downloading.
+        
+        Note: This method is synchronous as it only creates the downloader.
+        The actual download (next_chunk calls) should be run in a thread pool.
 
         Args:
             file_id: Drive file ID
@@ -193,6 +213,9 @@ class DriveService:
 
         This is more memory-efficient than get_file_content_stream for large files
         as it writes directly to disk instead of holding the entire file in memory.
+        
+        Note: This method is synchronous as it only creates the downloader.
+        The actual download (next_chunk calls) should be run in a thread pool.
 
         Args:
             file_id: Drive file ID
@@ -205,7 +228,7 @@ class DriveService:
         downloader = MediaIoBaseDownload(file_handle, request)
         return downloader
 
-    def get_file_metadata(self, file_id: str) -> dict[str, Any]:
+    async def get_file_metadata(self, file_id: str) -> dict[str, Any]:
         """Get file metadata including MD5 checksum.
 
         Args:
@@ -214,16 +237,13 @@ class DriveService:
         Returns:
             File metadata dict with md5Checksum
         """
-        return (
-            self.service.files()
-            .get(
-                fileId=file_id,
-                fields="id, name, mimeType, size, createdTime, modifiedTime, md5Checksum",
-            )
-            .execute()
+        request = self.service.files().get(
+            fileId=file_id,
+            fields="id, name, mimeType, size, createdTime, modifiedTime, md5Checksum",
         )
+        return await self._execute_async(request)
 
-    def get_all_videos_flat(
+    async def get_all_videos_flat(
         self,
         folder_id: str,
         recursive: bool = False,
@@ -247,11 +267,11 @@ class DriveService:
         if folder_id == "root":
             current_path = folder_path or "My Drive"
         else:
-            folder_info = self.get_folder_info(folder_id)
+            folder_info = await self.get_folder_info(folder_id)
             current_path = f"{folder_path}/{folder_info['name']}" if folder_path else folder_info["name"]
 
         # List files in folder
-        files = self.list_files(folder_id, video_only=True)
+        files = await self.list_files(folder_id, video_only=True)
 
         for file in files:
             if len(result) >= max_files:
@@ -259,13 +279,13 @@ class DriveService:
 
             if file.file_type == FileType.VIDEO:
                 # Get full metadata including MD5
-                file_meta = self.get_file_metadata(file.id)
+                file_meta = await self.get_file_metadata(file.id)
                 file_meta["folder_path"] = current_path
                 result.append((file_meta, current_path))
 
             elif file.file_type == FileType.FOLDER and recursive:
                 if len(result) < max_files:
-                    sub_files = self.get_all_videos_flat(
+                    sub_files = await self.get_all_videos_flat(
                         file.id,
                         recursive=True,
                         max_files=max_files - len(result),

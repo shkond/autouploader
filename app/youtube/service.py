@@ -304,7 +304,7 @@ class YouTubeService:
                 drive_service = get_drive_service()
 
             # Get file metadata
-            file_info = drive_service.get_file_metadata(drive_file_id)
+            file_info = await drive_service.get_file_metadata(drive_file_id)
             file_size = int(file_info.get("size", 0))
             mime_type = file_info.get("mimeType", "video/mp4")
             file_name = file_info.get("name", "video")
