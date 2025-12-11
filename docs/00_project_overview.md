@@ -64,6 +64,9 @@ cloudvid-bridge/
 │   │   ├── services.py      # QueueService
 │   │   ├── routes.py        # Queue API routes
 │   │   └── schemas.py       # Pydantic schemas
+│   ├── tasks/               # Scheduled tasks module
+│   │   ├── services.py      # FolderUploadService
+│   │   └── scheduled_upload.py  # CLI for Heroku Scheduler
 │   ├── static/              # Static files (CSS, JS)
 │   └── templates/           # Jinja2 templates
 ├── tests/                   # Test files
@@ -81,6 +84,7 @@ cloudvid-bridge/
 |---------|-------------|
 | Web Application | `uvicorn app.main:app` |
 | Background Worker | `python -m app.queue.worker` |
+| Scheduled Upload | `python -m app.tasks.scheduled_upload` |
 | Database Init | `python -c "from app.database import init_db; ..."` |
 
 ## Environment Variables
@@ -96,3 +100,6 @@ cloudvid-bridge/
 | `DATABASE_URL` | Database connection URL | ✓ |
 | `MAX_CONCURRENT_UPLOADS` | Concurrent upload limit | Default: 2 |
 | `UPLOAD_CHUNK_SIZE` | Upload chunk size (bytes) | Default: 10MB |
+| `TARGET_USER_ID` | User ID for scheduled tasks | Default: admin |
+| `TARGET_FOLDER_ID` | Drive folder ID for scheduled scan | Default: root |
+| `MAX_FILES_PER_RUN` | Max files per scheduled run | Default: 50 |

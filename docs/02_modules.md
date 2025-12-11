@@ -210,6 +210,7 @@ Database-backed job queue for upload tasks.
 | `start()` | Start background worker |
 | `stop()` | Stop worker gracefully |
 | `is_running()` | Check if worker is active |
+| `process_batch()` | Process queue until empty (for Scheduler) |
 | `_process_loop()` | Main polling loop |
 | `_process_job()` | Process single job |
 | `_pre_upload_check()` | Check for duplicates |
@@ -223,7 +224,11 @@ worker = get_queue_worker()
 
 **Standalone Execution:**
 ```bash
+# Continuous worker (dyno: worker)
 python -m app.queue.worker
+
+# Batch mode (Heroku Scheduler)
+python -m app.tasks.scheduled_upload
 ```
 
 ### `manager_db.py` - QueueManagerDB
@@ -270,6 +275,54 @@ Business logic layer for queue operations.
 | `QueueJob` | Job response with all fields |
 | `QueueStatus` | Queue statistics |
 | `JobStatus` | Status enum (pending, uploading, etc.) |
+
+---
+
+## Tasks Module (`app/tasks/`)
+
+Scheduled tasks and shared services for batch operations.
+
+### `services.py` - FolderUploadService
+
+**Class: `FolderUploadService`**
+
+Shared logic for folder scanning and queue management.
+
+| Method | Purpose |
+|--------|---------|
+| `process_folder()` | Scan folder and add videos to queue |
+| `_check_duplicates()` | Check queue AND UploadHistory |
+| `_create_video_metadata()` | Generate metadata from templates |
+
+**Usage:**
+```python
+from app.tasks.services import FolderUploadService
+
+async with get_db_context() as db:
+    folder_service = FolderUploadService(drive_service, db)
+    result = await folder_service.process_folder(
+        folder_id="...",
+        user_id="admin",
+        settings=FolderUploadSettings(),
+    )
+```
+
+### `scheduled_upload.py`
+
+CLI entry point for Heroku Scheduler.
+
+**Environment Variables:**
+
+| Variable | Default | Purpose |
+|----------|---------|--------|
+| `TARGET_USER_ID` | `admin` | User ID for auth |
+| `TARGET_FOLDER_ID` | `root` | Drive folder to scan |
+| `MAX_FILES_PER_RUN` | `50` | Max files per run |
+
+**Execution:**
+```bash
+python -m app.tasks.scheduled_upload
+```
 
 ---
 

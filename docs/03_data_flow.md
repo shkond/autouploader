@@ -102,6 +102,53 @@ User clicks "Add to Queue" on dashboard
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 4. Batch Processing / Scheduler Flow
+
+For Heroku Scheduler or cron-like execution:
+
+```
+python -m app.tasks.scheduled_upload
+                │
+                ▼
+┌─────────────────────────────────────────────────────────────┐
+│              run_scheduled_upload()                          │
+│              (app/tasks/scheduled_upload.py)                 │
+├─────────────────────────────────────────────────────────────┤
+│  1. Read env: TARGET_USER_ID, TARGET_FOLDER_ID              │
+│  2. Initialize database                                      │
+│  3. Get user credentials from OAuthService                   │
+│  4. Create DriveService, FolderUploadService                │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│              FolderUploadService.process_folder()            │
+│              (app/tasks/services.py)                         │
+├─────────────────────────────────────────────────────────────┤
+│  1. Scan Drive folder for videos                            │
+│  2. Check each file for duplicates:                         │
+│     - Queue (file_id, md5)                                  │
+│     - UploadHistory (md5)                                   │
+│  3. Add non-duplicate videos to queue                       │
+│  4. Return FolderProcessResult                              │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│              QueueWorker.process_batch()                     │
+│              (app/queue/worker.py)                           │
+├─────────────────────────────────────────────────────────────┤
+│  1. Check quota availability                                │
+│  2. Loop: get_next_pending_job()                            │
+│  3. For each job: call _process_job()                       │
+│  4. Stop when queue empty or quota exhausted                │
+│  5. Return processed count                                  │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+              Process exits (Scheduler complete)
+```
+
 ## Duplicate Detection Flow
 
 ### Pre-Upload Check
