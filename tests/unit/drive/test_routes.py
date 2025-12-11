@@ -80,13 +80,15 @@ def test_client():
 class TestListFiles:
     """Tests for list files endpoint."""
 
-    def test_list_files_requires_auth(self, test_client):
+    @staticmethod
+    def test_list_files_requires_auth(test_client):
         """Test that list files requires authentication."""
         # No session cookie = should get 401
         response = test_client.get("/drive/files")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_list_files_success(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_list_files_success(mock_drive_service, test_client_with_mocks):
         """Test successful file listing."""
         mock_drive_service.list_files = AsyncMock(return_value=[
             DriveFile(
@@ -111,7 +113,8 @@ class TestListFiles:
         data = response.json()
         assert len(data) == 2
 
-    def test_list_files_empty_folder(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_list_files_empty_folder(mock_drive_service, test_client_with_mocks):
         """Test listing empty folder."""
         mock_drive_service.list_files = AsyncMock(return_value=[])
 
@@ -125,7 +128,8 @@ class TestListFiles:
 class TestScanFolder:
     """Tests for scan folder endpoint."""
 
-    def test_scan_folder_success(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_scan_folder_success(mock_drive_service, test_client_with_mocks):
         """Test successful folder scan."""
         from app.drive.schemas import DriveFolder
 
@@ -144,7 +148,8 @@ class TestScanFolder:
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_scan_folder_requires_auth(self, test_client):
+    @staticmethod
+    def test_scan_folder_requires_auth(test_client):
         """Test that folder scan requires authentication."""
         response = test_client.post(
             "/drive/scan",
@@ -158,7 +163,8 @@ class TestScanFolder:
 class TestGetFileInfo:
     """Tests for get file info endpoint."""
 
-    def test_get_file_info_success(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_get_file_info_success(mock_drive_service, test_client_with_mocks):
         """Test getting file info successfully."""
         mock_drive_service.get_file_metadata = AsyncMock(return_value={
             "id": "file123",
@@ -174,7 +180,8 @@ class TestGetFileInfo:
         data = response.json()
         assert data["id"] == "file123"
 
-    def test_get_file_info_not_found(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_get_file_info_not_found(mock_drive_service, test_client_with_mocks):
         """Test file not found error."""
         import httplib2
         from googleapiclient.errors import HttpError
@@ -196,7 +203,8 @@ class TestGetFileInfo:
 class TestUploadFolder:
     """Tests for upload folder endpoint."""
 
-    def test_upload_folder_requires_auth(self, test_client):
+    @staticmethod
+    def test_upload_folder_requires_auth(test_client):
         """Test that upload folder requires authentication."""
         response = test_client.post(
             "/drive/folder/upload",
@@ -212,7 +220,8 @@ class TestUploadFolder:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_upload_folder_empty_success(self, mock_drive_service, test_client_with_mocks):
+    @staticmethod
+    def test_upload_folder_empty_success(mock_drive_service, test_client_with_mocks):
         """Test folder upload with no videos."""
         mock_drive_service.get_folder_info = AsyncMock(return_value={"id": "folder123", "name": "My Videos"})
         mock_drive_service.get_all_videos_flat = AsyncMock(return_value=[])

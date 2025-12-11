@@ -115,12 +115,14 @@ def sample_job():
 class TestQueueStatus:
     """Tests for queue status endpoint."""
 
-    def test_get_queue_status_requires_auth(self, test_client):
+    @staticmethod
+    def test_get_queue_status_requires_auth(test_client):
         """Test that queue status requires authentication."""
         response = test_client.get("/queue/status")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_get_queue_status_success(self, mock_queue_repo, test_client_with_mocks):
+    @staticmethod
+    def test_get_queue_status_success(mock_queue_repo, test_client_with_mocks):
         """Test getting queue status."""
         response = test_client_with_mocks.get("/queue/status")
 
@@ -134,12 +136,14 @@ class TestQueueStatus:
 class TestListJobs:
     """Tests for list jobs endpoint."""
 
-    def test_list_jobs_requires_auth(self, test_client):
+    @staticmethod
+    def test_list_jobs_requires_auth(test_client):
         """Test that list jobs requires authentication."""
         response = test_client.get("/queue/jobs")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_list_jobs_success(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_list_jobs_success(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test listing user's jobs."""
         mock_queue_repo.get_jobs_by_user = AsyncMock(return_value=[sample_job])
 
@@ -155,7 +159,8 @@ class TestListJobs:
 class TestAddJob:
     """Tests for add job endpoint."""
 
-    def test_add_job_requires_auth(self, test_client):
+    @staticmethod
+    def test_add_job_requires_auth(test_client):
         """Test that add job requires authentication."""
         response = test_client.post(
             "/queue/jobs",
@@ -171,7 +176,8 @@ class TestAddJob:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_add_job_success(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_add_job_success(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test adding job to queue."""
         mock_queue_repo.add_job = AsyncMock(return_value=sample_job)
 
@@ -197,12 +203,14 @@ class TestAddJob:
 class TestGetJob:
     """Tests for get job endpoint."""
 
-    def test_get_job_requires_auth(self, test_client, sample_job_id):
+    @staticmethod
+    def test_get_job_requires_auth(test_client, sample_job_id):
         """Test that get job requires authentication."""
         response = test_client.get(f"/queue/jobs/{sample_job_id}")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_get_job_not_found(self, mock_queue_repo, sample_job_id, test_client_with_mocks):
+    @staticmethod
+    def test_get_job_not_found(mock_queue_repo, sample_job_id, test_client_with_mocks):
         """Test getting non-existent job."""
         mock_queue_repo.get_job = AsyncMock(return_value=None)
 
@@ -210,7 +218,8 @@ class TestGetJob:
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-    def test_get_job_success(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_get_job_success(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test getting existing job."""
         mock_queue_repo.get_job = AsyncMock(return_value=sample_job)
 
@@ -223,12 +232,14 @@ class TestGetJob:
 class TestCancelJob:
     """Tests for cancel job endpoint."""
 
-    def test_cancel_job_requires_auth(self, test_client, sample_job_id):
+    @staticmethod
+    def test_cancel_job_requires_auth(test_client, sample_job_id):
         """Test that cancel job requires authentication."""
         response = test_client.post(f"/queue/jobs/{sample_job_id}/cancel")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_cancel_job_success(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_cancel_job_success(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test cancelling a pending job."""
         mock_queue_repo.get_job = AsyncMock(return_value=sample_job)
         cancelled_job = sample_job.model_copy(update={"status": JobStatus.CANCELLED})
@@ -243,12 +254,14 @@ class TestCancelJob:
 class TestDeleteJob:
     """Tests for delete job endpoint."""
 
-    def test_delete_job_requires_auth(self, test_client, sample_job_id):
+    @staticmethod
+    def test_delete_job_requires_auth(test_client, sample_job_id):
         """Test that delete job requires authentication."""
         response = test_client.delete(f"/queue/jobs/{sample_job_id}")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_delete_job_active_fails(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_delete_job_active_fails(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test that active jobs cannot be deleted."""
         active_job = sample_job.model_copy(update={"status": JobStatus.UPLOADING})
         mock_queue_repo.get_job = AsyncMock(return_value=active_job)
@@ -257,7 +270,8 @@ class TestDeleteJob:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_delete_job_success(self, mock_queue_repo, sample_job, test_client_with_mocks):
+    @staticmethod
+    def test_delete_job_success(mock_queue_repo, sample_job, test_client_with_mocks):
         """Test deleting completed job."""
         completed_job = sample_job.model_copy(update={"status": JobStatus.COMPLETED})
         mock_queue_repo.get_job = AsyncMock(return_value=completed_job)
@@ -272,12 +286,14 @@ class TestDeleteJob:
 class TestClearCompleted:
     """Tests for clear completed endpoint."""
 
-    def test_clear_completed_requires_auth(self, test_client):
+    @staticmethod
+    def test_clear_completed_requires_auth(test_client):
         """Test that clear completed requires authentication."""
         response = test_client.post("/queue/clear")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_clear_completed_success(self, mock_queue_repo, test_client_with_mocks):
+    @staticmethod
+    def test_clear_completed_success(mock_queue_repo, test_client_with_mocks):
         """Test clearing completed jobs."""
         mock_queue_repo.clear_completed = AsyncMock(return_value=5)
 
@@ -292,13 +308,15 @@ class TestClearCompleted:
 class TestWorkerControl:
     """Tests for worker control endpoints."""
 
-    def test_start_worker(self, test_client, mock_queue_worker):
+    @staticmethod
+    def test_start_worker(test_client, mock_queue_worker):
         """Test starting the worker."""
         response = test_client.post("/queue/worker/start")
 
         assert response.status_code == status.HTTP_200_OK
 
-    def test_stop_worker(self, test_client, mock_queue_worker):
+    @staticmethod
+    def test_stop_worker(test_client, mock_queue_worker):
         """Test stopping the worker."""
         response = test_client.post("/queue/worker/stop")
 
