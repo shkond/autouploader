@@ -92,12 +92,14 @@ class QueueRepository(QueueRepositoryProtocol):
             Created QueueJob
         """
         import json
+        from uuid import uuid4
 
         metadata_json = None
         if job_create.metadata:
             metadata_json = json.dumps(job_create.metadata.model_dump())
 
         model = QueueJobModel(
+            id=str(uuid4()),
             drive_file_id=job_create.drive_file_id,
             drive_file_name=job_create.drive_file_name,
             drive_md5_checksum=job_create.drive_md5_checksum,
