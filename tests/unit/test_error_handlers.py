@@ -25,13 +25,15 @@ from app.exceptions import (
 class TestCustomExceptions:
     """Tests for custom exception classes."""
 
-    def test_cloudvid_bridge_error_is_exception(self):
+    @staticmethod
+    def test_cloudvid_bridge_error_is_exception():
         """Test that CloudVidBridgeError is a proper exception."""
         error = CloudVidBridgeError("Test error")
         assert isinstance(error, Exception)
         assert str(error) == "Test error"
 
-    def test_quota_exceeded_error_attributes(self):
+    @staticmethod
+    def test_quota_exceeded_error_attributes():
         """Test QuotaExceededError has correct attributes."""
         error = QuotaExceededError(remaining=400, required=1600)
 
@@ -40,24 +42,28 @@ class TestCustomExceptions:
         assert "remaining=400" in str(error)
         assert "required=1600" in str(error)
 
-    def test_quota_exceeded_error_inherits_from_base(self):
+    @staticmethod
+    def test_quota_exceeded_error_inherits_from_base():
         """Test QuotaExceededError inherits from CloudVidBridgeError."""
         error = QuotaExceededError(remaining=0, required=1600)
         assert isinstance(error, CloudVidBridgeError)
 
-    def test_authentication_error(self):
+    @staticmethod
+    def test_authentication_error():
         """Test AuthenticationError."""
         error = AuthenticationError("Not logged in")
         assert isinstance(error, CloudVidBridgeError)
         assert str(error) == "Not logged in"
 
-    def test_google_authentication_error_inherits(self):
+    @staticmethod
+    def test_google_authentication_error_inherits():
         """Test GoogleAuthenticationError inherits from AuthenticationError."""
         error = GoogleAuthenticationError("OAuth failed")
         assert isinstance(error, AuthenticationError)
         assert isinstance(error, CloudVidBridgeError)
 
-    def test_upload_error_attributes(self):
+    @staticmethod
+    def test_upload_error_attributes():
         """Test UploadError has correct attributes."""
         error = UploadError(file_id="file123", message="Upload timeout")
 
@@ -66,17 +72,20 @@ class TestCustomExceptions:
         assert "file123" in str(error)
         assert "Upload timeout" in str(error)
 
-    def test_drive_access_error(self):
+    @staticmethod
+    def test_drive_access_error():
         """Test DriveAccessError."""
         error = DriveAccessError("File not found")
         assert isinstance(error, CloudVidBridgeError)
 
-    def test_queue_error(self):
+    @staticmethod
+    def test_queue_error():
         """Test QueueError."""
         error = QueueError("Job not found")
         assert isinstance(error, CloudVidBridgeError)
 
-    def test_catching_all_custom_exceptions(self):
+    @staticmethod
+    def test_catching_all_custom_exceptions():
         """Test that all custom exceptions can be caught by base class."""
         exceptions = [
             QuotaExceededError(remaining=0, required=1600),
@@ -99,7 +108,8 @@ class TestCustomExceptions:
 class TestQuotaExceededErrorInService:
     """Tests for QuotaExceededError usage in YouTube service."""
 
-    def test_upload_raises_quota_exceeded_when_insufficient(self):
+    @staticmethod
+    def test_upload_raises_quota_exceeded_when_insufficient():
         """Test that upload raises QuotaExceededError when quota is insufficient."""
         from app.youtube.quota import QuotaTracker
 
@@ -110,7 +120,8 @@ class TestQuotaExceededErrorInService:
         assert not tracker.can_perform("videos.insert")
         assert tracker.get_remaining_quota() < 1600
 
-    def test_upload_with_retry_checks_quota(self):
+    @staticmethod
+    def test_upload_with_retry_checks_quota():
         """Test that upload_from_drive_with_retry checks quota before upload."""
         with patch("app.youtube.service.get_quota_tracker") as mock_tracker_getter:
             mock_tracker = MagicMock()
@@ -127,7 +138,8 @@ class TestQuotaExceededErrorInService:
 class TestWorkerQuotaHandling:
     """Tests for quota handling in worker."""
 
-    def test_worker_checks_quota_before_processing(self):
+    @staticmethod
+    def test_worker_checks_quota_before_processing():
         """Test that worker checks quota before processing jobs."""
         # Patch at the youtube.quota module level since worker imports from there
         with patch("app.youtube.quota.get_quota_tracker") as mock_tracker_getter:
@@ -141,7 +153,8 @@ class TestWorkerQuotaHandling:
             tracker = get_quota_tracker()
             assert tracker.can_perform("videos.insert")
 
-    def test_worker_waits_when_quota_exhausted(self):
+    @staticmethod
+    def test_worker_waits_when_quota_exhausted():
         """Test that worker waits when quota is exhausted."""
         # Patch at the youtube.quota module level since worker imports from there
         with patch("app.youtube.quota.get_quota_tracker") as mock_tracker_getter:
@@ -160,7 +173,8 @@ class TestWorkerQuotaHandling:
 class TestQuotaTrackerBehavior:
     """Tests for QuotaTracker behavior related to error handling."""
 
-    def test_quota_tracker_tracks_usage(self):
+    @staticmethod
+    def test_quota_tracker_tracks_usage():
         """Test that quota tracker properly tracks API usage."""
         from app.youtube.quota import QuotaTracker
 
@@ -174,7 +188,8 @@ class TestQuotaTrackerBehavior:
         tracker.track("videos.insert")
         assert tracker.get_remaining_quota() == 8400
 
-    def test_quota_tracker_prevents_over_usage(self):
+    @staticmethod
+    def test_quota_tracker_prevents_over_usage():
         """Test that quota tracker prevents usage when quota is low."""
         from app.youtube.quota import QuotaTracker
 
@@ -183,7 +198,8 @@ class TestQuotaTrackerBehavior:
         # Cannot perform upload with low quota
         assert not tracker.can_perform("videos.insert")
 
-    def test_quota_tracker_allows_low_cost_operations(self):
+    @staticmethod
+    def test_quota_tracker_allows_low_cost_operations():
         """Test that low-cost operations are allowed even with low quota."""
         from app.youtube.quota import QuotaTracker
 

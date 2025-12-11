@@ -189,8 +189,9 @@ class DriveService:
 
         return result[:max_files]
 
+    @staticmethod
     def get_uploadable_files(
-        self, files: list[DriveFile]
+        files: list[DriveFile]
     ) -> list[DriveFile]:
         """Filter files to get only uploadable video files.
 

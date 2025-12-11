@@ -32,7 +32,8 @@ def get_sqlalchemy_columns(model: type[DeclarativeBase]) -> set[str]:
 class TestQueueJobBaseInheritance:
     """Test that schemas properly inherit from QueueJobBase."""
 
-    def test_queue_job_create_inherits_base_fields(self):
+    @staticmethod
+    def test_queue_job_create_inherits_base_fields():
         """QueueJobCreate should have all QueueJobBase fields."""
         base_fields = get_pydantic_fields(QueueJobBase)
         create_fields = get_pydantic_fields(QueueJobCreate)
@@ -40,7 +41,8 @@ class TestQueueJobBaseInheritance:
         missing = base_fields - create_fields
         assert not missing, f"QueueJobCreate missing base fields: {missing}"
 
-    def test_queue_job_inherits_base_fields(self):
+    @staticmethod
+    def test_queue_job_inherits_base_fields():
         """QueueJob should have all QueueJobBase fields."""
         base_fields = get_pydantic_fields(QueueJobBase)
         job_fields = get_pydantic_fields(QueueJob)
@@ -52,7 +54,8 @@ class TestQueueJobBaseInheritance:
 class TestSchemaModelSynchronization:
     """Test synchronization between Pydantic schemas and SQLAlchemy model."""
 
-    def test_queue_job_create_fields_exist_in_model(self):
+    @staticmethod
+    def test_queue_job_create_fields_exist_in_model():
         """All QueueJobCreate fields (except metadata) should exist in QueueJobModel."""
         create_fields = get_pydantic_fields(QueueJobCreate)
         model_columns = get_sqlalchemy_columns(QueueJobModel)
@@ -66,7 +69,8 @@ class TestSchemaModelSynchronization:
             f"Add these columns to QueueJobModel in models.py"
         )
 
-    def test_queue_job_fields_exist_in_model(self):
+    @staticmethod
+    def test_queue_job_fields_exist_in_model():
         """All QueueJob fields (except metadata) should exist in QueueJobModel."""
         job_fields = get_pydantic_fields(QueueJob)
         model_columns = get_sqlalchemy_columns(QueueJobModel)
@@ -80,7 +84,8 @@ class TestSchemaModelSynchronization:
             f"Add these columns to QueueJobModel in models.py"
         )
 
-    def test_shared_fields_constant_matches_queue_job(self):
+    @staticmethod
+    def test_shared_fields_constant_matches_queue_job():
         """QUEUE_JOB_SHARED_FIELDS should match actual QueueJob fields."""
         job_fields = get_pydantic_fields(QueueJob)
         # Exclude metadata as it's handled specially
@@ -98,7 +103,8 @@ class TestSchemaModelSynchronization:
             f"Update the constant in schemas.py"
         )
 
-    def test_create_fields_constant_matches_queue_job_create(self):
+    @staticmethod
+    def test_create_fields_constant_matches_queue_job_create():
         """QUEUE_JOB_CREATE_FIELDS should match QueueJobCreate base fields."""
         create_fields = get_pydantic_fields(QueueJobCreate)
         # Exclude metadata as it's handled specially
@@ -116,7 +122,8 @@ class TestSchemaModelSynchronization:
             f"Update the constant in schemas.py"
         )
 
-    def test_model_has_metadata_json_column(self):
+    @staticmethod
+    def test_model_has_metadata_json_column():
         """QueueJobModel should have metadata_json column for storing VideoMetadata."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         assert "metadata_json" in model_columns, (
@@ -128,17 +135,20 @@ class TestSchemaModelSynchronization:
 class TestModelRequiredColumns:
     """Test that QueueJobModel has all required columns."""
 
-    def test_model_has_id_column(self):
+    @staticmethod
+    def test_model_has_id_column():
         """QueueJobModel must have an id column."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         assert "id" in model_columns
 
-    def test_model_has_user_id_column(self):
+    @staticmethod
+    def test_model_has_user_id_column():
         """QueueJobModel must have a user_id column."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         assert "user_id" in model_columns
 
-    def test_model_has_timestamp_columns(self):
+    @staticmethod
+    def test_model_has_timestamp_columns():
         """QueueJobModel must have timestamp columns."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         required_timestamps = {"created_at", "updated_at", "started_at", "completed_at"}
@@ -146,7 +156,8 @@ class TestModelRequiredColumns:
         missing = required_timestamps - model_columns
         assert not missing, f"QueueJobModel missing timestamp columns: {missing}"
 
-    def test_model_has_file_size_column(self):
+    @staticmethod
+    def test_model_has_file_size_column():
         """QueueJobModel must have file_size column for validation."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         assert "file_size" in model_columns, (

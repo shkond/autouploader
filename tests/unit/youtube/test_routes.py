@@ -100,12 +100,14 @@ def test_client():
 class TestGetChannelInfo:
     """Tests for get channel info endpoint."""
 
-    def test_get_channel_info_requires_auth(self, test_client):
+    @staticmethod
+    def test_get_channel_info_requires_auth(test_client):
         """Test that channel info requires authentication."""
         response = test_client.get("/youtube/channel")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_get_channel_info_success(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_get_channel_info_success(mock_youtube_service, test_client_with_mocks):
         """Test getting channel info successfully."""
         response = test_client_with_mocks.get("/youtube/channel")
 
@@ -118,12 +120,14 @@ class TestGetChannelInfo:
 class TestListMyVideos:
     """Tests for list videos endpoint."""
 
-    def test_list_my_videos_requires_auth(self, test_client):
+    @staticmethod
+    def test_list_my_videos_requires_auth(test_client):
         """Test that list videos requires authentication."""
         response = test_client.get("/youtube/videos")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_list_my_videos_success(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_list_my_videos_success(mock_youtube_service, test_client_with_mocks):
         """Test listing videos successfully."""
         mock_youtube_service.list_my_videos.return_value = [
             {
@@ -144,7 +148,8 @@ class TestListMyVideos:
         data = response.json()
         assert len(data) == 1
 
-    def test_list_my_videos_empty(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_list_my_videos_empty(mock_youtube_service, test_client_with_mocks):
         """Test listing when no videos exist."""
         mock_youtube_service.list_my_videos.return_value = []
 
@@ -158,7 +163,8 @@ class TestListMyVideos:
 class TestUploadVideo:
     """Tests for upload video endpoint."""
 
-    def test_upload_video_requires_auth(self, test_client):
+    @staticmethod
+    def test_upload_video_requires_auth(test_client):
         """Test that upload requires authentication."""
         response = test_client.post(
             "/youtube/upload",
@@ -174,7 +180,8 @@ class TestUploadVideo:
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_upload_video_success(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_upload_video_success(mock_youtube_service, test_client_with_mocks):
         """Test uploading video successfully."""
         from app.youtube.schemas import UploadResult
 
@@ -205,7 +212,8 @@ class TestUploadVideo:
 class TestQuotaStatus:
     """Tests for quota status endpoint."""
 
-    def test_get_quota_status(self, test_client, mock_quota_tracker):
+    @staticmethod
+    def test_get_quota_status(test_client, mock_quota_tracker):
         """Test getting quota status."""
         response = test_client.get("/youtube/quota")
 
@@ -215,7 +223,8 @@ class TestQuotaStatus:
         assert "remaining" in data
         assert "daily_limit" in data
 
-    def test_quota_status_breakdown(self, test_client, mock_quota_tracker):
+    @staticmethod
+    def test_quota_status_breakdown(test_client, mock_quota_tracker):
         """Test quota breakdown is included."""
         response = test_client.get("/youtube/quota")
 
@@ -228,12 +237,14 @@ class TestQuotaStatus:
 class TestCheckVideoExists:
     """Tests for check video exists endpoint."""
 
-    def test_check_video_exists_requires_auth(self, test_client):
+    @staticmethod
+    def test_check_video_exists_requires_auth(test_client):
         """Test that check video exists requires authentication."""
         response = test_client.get("/youtube/video/video123/exists")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_check_video_exists_found(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_check_video_exists_found(mock_youtube_service, test_client_with_mocks):
         """Test checking existing video."""
         mock_youtube_service.check_video_exists_on_youtube.return_value = True
 
@@ -244,7 +255,8 @@ class TestCheckVideoExists:
         assert data["exists"] is True
         assert data["video_id"] == "video123"
 
-    def test_check_video_exists_not_found(self, mock_youtube_service, test_client_with_mocks):
+    @staticmethod
+    def test_check_video_exists_not_found(mock_youtube_service, test_client_with_mocks):
         """Test checking non-existent video."""
         mock_youtube_service.check_video_exists_on_youtube.return_value = False
 

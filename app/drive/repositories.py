@@ -45,7 +45,8 @@ class DriveRepository(DriveRepositoryProtocol):
         self._credentials = credentials
         self._service = build("drive", "v3", credentials=credentials)
 
-    async def _execute_async(self, request: Any, cancellable: bool = True) -> Any:
+    @staticmethod
+    async def _execute_async(request: Any, cancellable: bool = True) -> Any:
         """Execute a Google API request asynchronously.
 
         Wraps the blocking execute() call in run_sync to avoid blocking the event loop.
