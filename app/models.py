@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -72,6 +72,7 @@ class QueueJobModel(Base):
     drive_file_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     drive_file_name: Mapped[str] = mapped_column(String(500), nullable=False)
     drive_md5_checksum: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)  # File size in bytes
     folder_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     batch_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     metadata_json: Mapped[str] = mapped_column(Text, nullable=False)  # VideoMetadata as JSON
@@ -93,6 +94,11 @@ class QueueJobModel(Base):
     started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        onupdate=func.now(),
     )
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

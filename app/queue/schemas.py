@@ -28,6 +28,7 @@ class QueueJob(BaseModel):
     drive_file_id: str
     drive_file_name: str
     drive_md5_checksum: str | None = None
+    file_size: int | None = None
     folder_path: str | None = None
     batch_id: str | None = None
     metadata: VideoMetadata
@@ -38,6 +39,7 @@ class QueueJob(BaseModel):
     video_url: str | None = None
     error: str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
     retry_count: int = 0
