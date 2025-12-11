@@ -1,14 +1,32 @@
 {
-    "name": "CloudVid Bridge Dev",
+    "name": "CloudVid Bridge Development",
     "dockerComposeFile": "../docker-compose.yml",
-    "service": "web",
+    "service": "app",
     "workspaceFolder": "/app",
+    "overrideCommand": false,
+    "forwardPorts": [
+        8000
+    ],
+    "portsAttributes": {
+        "8000": {
+            "label": "FastAPI",
+            "onAutoForward": "notify"
+        }
+    },
     "customizations": {
         "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "editor.formatOnSave": true
+            },
             "extensions": [
                 "ms-python.python",
-                "ms-python.vscode-pylance"
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "humao.rest-client"
             ]
         }
-    }
+    },
+    "remoteUser": "appuser"
 }

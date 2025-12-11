@@ -12,8 +12,12 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    wget \
+    ca-certificates \
+    git \
+    procps \
     && rm -rf /var/lib/apt/lists/*
-
+    
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash appuser
 
