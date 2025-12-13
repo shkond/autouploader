@@ -10,10 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.drive.schemas import FolderUploadSettings, SkippedFile
-from app.queue.schemas import QueueJob
+from app.drive.schemas import FolderUploadSettings
 from app.tasks.services import FolderUploadService
-from app.youtube.schemas import PrivacyStatus, VideoMetadata
+from app.youtube.schemas import PrivacyStatus
 
 
 class TestCreateVideoMetadata:
@@ -152,21 +151,21 @@ class TestCheckDuplicates:
         """Test that no duplicate returns None."""
         mock_db = AsyncMock()
         mock_drive = MagicMock()
-        
+
         # Setup mock repo
         with patch("app.tasks.services.QueueRepository") as mock_repo_class:
             mock_repo = mock_repo_class.return_value
             mock_repo.is_file_id_in_queue = AsyncMock(return_value=False)
             mock_repo.is_md5_in_queue = AsyncMock(return_value=False)
-            
+
             # Mock DB query for UploadHistory
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = None
             mock_db.execute = AsyncMock(return_value=mock_result)
-            
+
             service = FolderUploadService(mock_drive, mock_db)
             result = await service._check_duplicates("file123", "md5abc")
-            
+
             assert result is None
 
     @pytest.mark.asyncio
@@ -174,14 +173,14 @@ class TestCheckDuplicates:
         """Test that file ID in queue returns 'already_in_queue'."""
         mock_db = AsyncMock()
         mock_drive = MagicMock()
-        
+
         with patch("app.tasks.services.QueueRepository") as mock_repo_class:
             mock_repo = mock_repo_class.return_value
             mock_repo.is_file_id_in_queue = AsyncMock(return_value=True)
-            
+
             service = FolderUploadService(mock_drive, mock_db)
             result = await service._check_duplicates("file123", "md5abc")
-            
+
             assert result == "already_in_queue"
 
     @pytest.mark.asyncio
@@ -189,15 +188,15 @@ class TestCheckDuplicates:
         """Test that MD5 in queue returns 'duplicate_md5_in_queue'."""
         mock_db = AsyncMock()
         mock_drive = MagicMock()
-        
+
         with patch("app.tasks.services.QueueRepository") as mock_repo_class:
             mock_repo = mock_repo_class.return_value
             mock_repo.is_file_id_in_queue = AsyncMock(return_value=False)
             mock_repo.is_md5_in_queue = AsyncMock(return_value=True)
-            
+
             service = FolderUploadService(mock_drive, mock_db)
             result = await service._check_duplicates("file123", "md5abc")
-            
+
             assert result == "duplicate_md5_in_queue"
 
     @pytest.mark.asyncio
@@ -205,20 +204,20 @@ class TestCheckDuplicates:
         """Test that MD5 in upload history returns correct reason."""
         mock_db = AsyncMock()
         mock_drive = MagicMock()
-        
+
         with patch("app.tasks.services.QueueRepository") as mock_repo_class:
             mock_repo = mock_repo_class.return_value
             mock_repo.is_file_id_in_queue = AsyncMock(return_value=False)
             mock_repo.is_md5_in_queue = AsyncMock(return_value=False)
-            
+
             # Mock existing upload history
             mock_history = MagicMock()
             mock_history.youtube_video_id = "yt_video_123"
             mock_result = MagicMock()
             mock_result.scalar_one_or_none.return_value = mock_history
             mock_db.execute = AsyncMock(return_value=mock_result)
-            
+
             service = FolderUploadService(mock_drive, mock_db)
             result = await service._check_duplicates("file123", "md5abc")
-            
+
             assert result == "already_uploaded:yt_video_123"

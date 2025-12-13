@@ -4,7 +4,6 @@ These tests ensure that QueueJobCreate, QueueJob schema, and QueueJobModel
 have consistent fields to prevent runtime errors like 'invalid keyword argument'.
 """
 
-import pytest
 from pydantic import BaseModel
 from sqlalchemy.orm import DeclarativeBase
 
@@ -37,7 +36,7 @@ class TestQueueJobBaseInheritance:
         """QueueJobCreate should have all QueueJobBase fields."""
         base_fields = get_pydantic_fields(QueueJobBase)
         create_fields = get_pydantic_fields(QueueJobCreate)
-        
+
         missing = base_fields - create_fields
         assert not missing, f"QueueJobCreate missing base fields: {missing}"
 
@@ -46,7 +45,7 @@ class TestQueueJobBaseInheritance:
         """QueueJob should have all QueueJobBase fields."""
         base_fields = get_pydantic_fields(QueueJobBase)
         job_fields = get_pydantic_fields(QueueJob)
-        
+
         missing = base_fields - job_fields
         assert not missing, f"QueueJob missing base fields: {missing}"
 
@@ -59,10 +58,10 @@ class TestSchemaModelSynchronization:
         """All QueueJobCreate fields (except metadata) should exist in QueueJobModel."""
         create_fields = get_pydantic_fields(QueueJobCreate)
         model_columns = get_sqlalchemy_columns(QueueJobModel)
-        
+
         # metadata -> metadata_json is a special case
         expected_in_model = create_fields - {"metadata"}
-        
+
         missing = expected_in_model - model_columns
         assert not missing, (
             f"QueueJobCreate has fields not in QueueJobModel: {missing}. "
@@ -74,10 +73,10 @@ class TestSchemaModelSynchronization:
         """All QueueJob fields (except metadata) should exist in QueueJobModel."""
         job_fields = get_pydantic_fields(QueueJob)
         model_columns = get_sqlalchemy_columns(QueueJobModel)
-        
+
         # metadata -> metadata_json is a special case
         expected_in_model = job_fields - {"metadata"}
-        
+
         missing = expected_in_model - model_columns
         assert not missing, (
             f"QueueJob has fields not in QueueJobModel: {missing}. "
@@ -90,10 +89,10 @@ class TestSchemaModelSynchronization:
         job_fields = get_pydantic_fields(QueueJob)
         # Exclude metadata as it's handled specially
         job_fields_no_metadata = job_fields - {"metadata"}
-        
+
         missing_from_constant = job_fields_no_metadata - QUEUE_JOB_SHARED_FIELDS
         extra_in_constant = QUEUE_JOB_SHARED_FIELDS - job_fields_no_metadata
-        
+
         assert not missing_from_constant, (
             f"QUEUE_JOB_SHARED_FIELDS missing: {missing_from_constant}. "
             f"Update the constant in schemas.py"
@@ -109,10 +108,10 @@ class TestSchemaModelSynchronization:
         create_fields = get_pydantic_fields(QueueJobCreate)
         # Exclude metadata as it's handled specially
         create_fields_no_metadata = create_fields - {"metadata"}
-        
+
         missing_from_constant = create_fields_no_metadata - QUEUE_JOB_CREATE_FIELDS
         extra_in_constant = QUEUE_JOB_CREATE_FIELDS - create_fields_no_metadata
-        
+
         assert not missing_from_constant, (
             f"QUEUE_JOB_CREATE_FIELDS missing: {missing_from_constant}. "
             f"Update the constant in schemas.py"
@@ -152,7 +151,7 @@ class TestModelRequiredColumns:
         """QueueJobModel must have timestamp columns."""
         model_columns = get_sqlalchemy_columns(QueueJobModel)
         required_timestamps = {"created_at", "updated_at", "started_at", "completed_at"}
-        
+
         missing = required_timestamps - model_columns
         assert not missing, f"QueueJobModel missing timestamp columns: {missing}"
 
