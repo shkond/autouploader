@@ -26,6 +26,12 @@
                     <div class="avatar-placeholder">{{ google_user.name[0] if google_user.name else 'U' }}</div>
                     {% endif %}
                 </div>
+                <div id="quota-status" class="quota-status" style="display: none;" title="YouTube API Quota Usage">
+                    <div class="quota-pill">
+                        <span class="quota-icon">📊</span>
+                        <span class="quota-text">--%</span>
+                    </div>
+                </div>
                 <span class="user-name">{{ google_user.name or google_user.email }}</span>
                 {% endif %}
                 <a href="/auth/logout" class="btn-logout">ログアウト</a>
@@ -208,8 +214,15 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button id="select-folder" class="btn-primary" disabled>選択</button>
-            <button id="cancel-select" class="btn-secondary">キャンセル</button>
+            <div class="modal-actions-left">
+                <button id="select-current-folder" class="btn-secondary" title="現在開いているフォルダを選択">
+                    このフォルダを選択
+                </button>
+            </div>
+            <div class="modal-actions-right">
+                <button id="select-folder" class="btn-primary" disabled>選択</button>
+                <button id="cancel-select" class="btn-secondary">キャンセル</button>
+            </div>
         </div>
     </div>
 </div>

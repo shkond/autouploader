@@ -42,6 +42,10 @@ const elements = {
     includeMd5Check: document.getElementById('include-md5'),
     // Toast
     toastContainer: document.getElementById('toast-container'),
+    // Quota
+    quotaStatus: document.getElementById('quota-status'),
+    // Updates
+    selectCurrentFolderBtn: document.getElementById('select-current-folder'),
 };
 
 // API Functions
@@ -135,6 +139,56 @@ async function stopWorker() {
     } catch (error) {
         showToast('ワーカー停止に失敗しました', 'error');
         return false;
+    }
+}
+
+    }
+}
+
+async function deleteJob(jobId) {
+    if (!confirm('このジョブを削除してもよろしいですか？')) return;
+
+    try {
+        const response = await fetch(`/queue/jobs/${jobId}`, { method: 'DELETE' });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete job');
+        }
+        showToast('ジョブを削除しました', 'success');
+        refreshQueueList();
+    } catch (error) {
+        showToast(`削除失敗: ${error.message}`, 'error');
+    }
+}
+
+async function updateQuotaStatus() {
+    if (!elements.quotaStatus) return;
+
+    try {
+        const response = await fetch('/youtube/quota');
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const percent = data.usage_percentage;
+        const remaining = data.remaining;
+
+        elements.quotaStatus.style.display = 'flex';
+        const quotaText = elements.quotaStatus.querySelector('.quota-text');
+
+        if (percent >= 100) {
+            quotaText.textContent = '100% (上限到達)';
+            elements.quotaStatus.classList.add('error');
+        } else {
+            quotaText.textContent = `${percent}% (残: ${remaining})`;
+            elements.quotaStatus.classList.remove('error');
+            if (percent > 80) {
+                elements.quotaStatus.classList.add('warning');
+            } else {
+                elements.quotaStatus.classList.remove('warning');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to update quota:', error);
     }
 }
 
@@ -233,6 +287,16 @@ function navigateToFolder(folderId, folderName) {
         elements.breadcrumb.appendChild(item);
     }
     loadFolderContents(folderId);
+}
+
+function selectCurrentFolder() {
+    if (!currentFolderId) return;
+
+    // Set variables as if selected from list
+    selectedFolderId = currentFolderId;
+    selectedFolderName = currentFolderName; // This might be "My Drive" or last folder name
+
+    selectFolder();
 }
 
 function selectFolder() {
@@ -417,12 +481,17 @@ async function refreshQueueList() {
             ? `<div class="progress-bar"><div class="progress-fill" style="width: ${job.progress}%"></div></div>`
             : '';
 
+        const deleteBtn = (job.status !== 'downloading' && job.status !== 'uploading')
+            ? `<button class="btn-icon btn-delete" onclick="deleteJob('${job.id}')" title="削除">🗑️</button>`
+            : '';
+
         item.innerHTML = `
             <div class="job-info">
                 <span class="job-name">${job.drive_file_name}</span>
                 <span class="job-status">${job.status} ${job.message ? '- ' + job.message : ''}</span>
             </div>
             ${progressBar}
+            ${deleteBtn}
         `;
 
         elements.queueList.appendChild(item);
@@ -476,7 +545,14 @@ async function refreshQueueList() {
 document.addEventListener('DOMContentLoaded', () => {
     // Browse folders button
     if (elements.browseBtn) {
-        elements.browseBtn.addEventListener('click', openModal);
+        elements.browseBtn.addEventListener('click', () => {
+            openModal();
+            // Reset select current folder button text
+            if (elements.selectCurrentFolderBtn) {
+                elements.selectCurrentFolderBtn.textContent = 'このフォルダを選択';
+                elements.selectCurrentFolderBtn.disabled = false;
+            }
+        });
     }
 
     // Modal controls
@@ -541,9 +617,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Select Current Folder button
+    if (elements.selectCurrentFolderBtn) {
+        elements.selectCurrentFolderBtn.addEventListener('click', selectCurrentFolder);
+    }
+
     // Initial queue refresh
     refreshQueueList();
+    updateQuotaStatus();
 
     // Periodic queue refresh
-    setInterval(refreshQueueList, 5000);
+    setInterval(() => {
+        refreshQueueList();
+        updateQuotaStatus();
+    }, 5000);
 });
