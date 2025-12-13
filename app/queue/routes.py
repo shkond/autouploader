@@ -317,43 +317,11 @@ async def clear_completed(
     return {"message": f"Cleared {count} job(s)", "cleared_count": count}
 
 
-@router.post("/worker/start")
-async def start_worker(background_tasks: BackgroundTasks) -> dict:
-    """Manually start the queue worker.
-
-    Args:
-        background_tasks: FastAPI background tasks
-
-    Returns:
-        Status message
-    """
-    worker = get_queue_worker()
-    if worker.is_running():
-        return {"message": "Worker already running"}
-
-    background_tasks.add_task(_start_worker)
-    return {"message": "Worker starting"}
-
-
-@router.post("/worker/stop")
-async def stop_worker(background_tasks: BackgroundTasks) -> dict:
-    """Stop the queue worker.
-
-    Args:
-        background_tasks: FastAPI background tasks
-
-    Returns:
-        Status message
-    """
-    worker = get_queue_worker()
-    if not worker.is_running():
-        return {"message": "Worker not running"}
-
-    background_tasks.add_task(worker.stop)
-    return {"message": "Worker stopping"}
-
-
 async def _start_worker() -> None:
-    """Start the queue worker (used as background task)."""
+    """Start the queue worker (used as background task for auto-start).
+    
+    Note: In production, the worker runs as a separate Heroku dyno.
+    This function is kept for local development auto-start when jobs are added.
+    """
     worker = get_queue_worker()
     await worker.start()

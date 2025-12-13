@@ -24,8 +24,6 @@ const elements = {
     queueList: document.getElementById('queue-list'),
     queueCount: document.getElementById('queue-count'),
     progressInfo: document.getElementById('progress-info'),
-    startWorkerBtn: document.getElementById('start-worker'),
-    stopWorkerBtn: document.getElementById('stop-worker'),
     // Modal
     modal: document.getElementById('folder-modal'),
     closeModal: document.getElementById('close-modal'),
@@ -46,6 +44,21 @@ const elements = {
     quotaStatus: document.getElementById('quota-status'),
     // Updates
     selectCurrentFolderBtn: document.getElementById('select-current-folder'),
+    // Schedule Settings
+    scheduleFolderUrl: document.getElementById('schedule-folder-url'),
+    scheduleMaxFiles: document.getElementById('schedule-max-files'),
+    scheduleTitleTemplate: document.getElementById('schedule-title-template'),
+    scheduleDescriptionTemplate: document.getElementById('schedule-description-template'),
+    schedulePrivacy: document.getElementById('schedule-privacy'),
+    scheduleRecursive: document.getElementById('schedule-recursive'),
+    scheduleSkipDuplicates: document.getElementById('schedule-skip-duplicates'),
+    scheduleIncludeMd5: document.getElementById('schedule-include-md5'),
+    scheduleEnabled: document.getElementById('schedule-enabled'),
+    scheduleStatus: document.getElementById('schedule-status'),
+    saveScheduleBtn: document.getElementById('save-schedule'),
+    deleteScheduleBtn: document.getElementById('delete-schedule'),
+    validateFolderBtn: document.getElementById('validate-folder'),
+    folderValidationStatus: document.getElementById('folder-validation-status'),
 };
 
 // API Functions
@@ -118,28 +131,142 @@ async function getQueueStatus() {
     }
 }
 
-async function startWorker() {
+// Schedule Settings API Functions
+async function loadScheduleSettings() {
     try {
-        const response = await fetch('/queue/worker/start', { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to start worker');
-        showToast('ワーカーを開始しました', 'success');
+        const response = await fetch('/settings/schedule');
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Failed to load schedule settings:', error);
+        return null;
+    }
+}
+
+async function saveScheduleSettings() {
+    const folderUrl = elements.scheduleFolderUrl?.value?.trim();
+    if (!folderUrl) {
+        showToast('フォルダURLを入力してください', 'error');
+        return false;
+    }
+
+    const settings = {
+        folder_url: folderUrl,
+        max_files_per_run: parseInt(elements.scheduleMaxFiles?.value || '50', 10),
+        title_template: elements.scheduleTitleTemplate?.value || '{filename}',
+        description_template: elements.scheduleDescriptionTemplate?.value || 'Uploaded from {folder_path}',
+        default_privacy: elements.schedulePrivacy?.value || 'private',
+        recursive: elements.scheduleRecursive?.checked ?? true,
+        skip_duplicates: elements.scheduleSkipDuplicates?.checked ?? true,
+        include_md5_hash: elements.scheduleIncludeMd5?.checked ?? true,
+        is_enabled: elements.scheduleEnabled?.checked ?? false,
+    };
+
+    try {
+        const response = await fetch('/settings/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to save settings');
+        }
+        showToast('スケジュール設定を保存しました', 'success');
+        if (elements.deleteScheduleBtn) elements.deleteScheduleBtn.style.display = 'inline-block';
         return true;
     } catch (error) {
-        showToast('ワーカー開始に失敗しました', 'error');
+        showToast(`保存失敗: ${error.message}`, 'error');
         return false;
     }
 }
 
-async function stopWorker() {
+async function deleteScheduleSettings() {
+    if (!confirm('スケジュール設定を削除してもよろしいですか？')) return false;
+
     try {
-        const response = await fetch('/queue/worker/stop', { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to stop worker');
-        showToast('ワーカーを停止しました', 'success');
+        const response = await fetch('/settings/schedule', { method: 'DELETE' });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete settings');
+        }
+        showToast('スケジュール設定を削除しました', 'success');
+        // Reset form
+        if (elements.scheduleFolderUrl) elements.scheduleFolderUrl.value = '';
+        if (elements.scheduleEnabled) elements.scheduleEnabled.checked = false;
+        updateScheduleStatusDisplay(false);
+        if (elements.deleteScheduleBtn) elements.deleteScheduleBtn.style.display = 'none';
         return true;
     } catch (error) {
-        showToast('ワーカー停止に失敗しました', 'error');
+        showToast(`削除失敗: ${error.message}`, 'error');
         return false;
     }
+}
+
+async function validateFolderUrl() {
+    const folderUrl = elements.scheduleFolderUrl?.value?.trim();
+    if (!folderUrl) {
+        showToast('フォルダURLを入力してください', 'error');
+        return;
+    }
+
+    if (elements.folderValidationStatus) {
+        elements.folderValidationStatus.textContent = '検証中...';
+        elements.folderValidationStatus.className = 'validation-status validating';
+    }
+
+    try {
+        const response = await fetch('/settings/schedule/validate-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder_url: folderUrl }),
+        });
+        const result = await response.json();
+
+        if (result.valid) {
+            if (elements.folderValidationStatus) {
+                elements.folderValidationStatus.textContent = `✓ ${result.folder_name}`;
+                elements.folderValidationStatus.className = 'validation-status valid';
+            }
+            showToast(`フォルダ「${result.folder_name}」にアクセスできます`, 'success');
+        } else {
+            if (elements.folderValidationStatus) {
+                elements.folderValidationStatus.textContent = `✗ ${result.error}`;
+                elements.folderValidationStatus.className = 'validation-status invalid';
+            }
+            showToast(result.error || '無効なフォルダURL', 'error');
+        }
+    } catch (error) {
+        if (elements.folderValidationStatus) {
+            elements.folderValidationStatus.textContent = '✗ 検証エラー';
+            elements.folderValidationStatus.className = 'validation-status invalid';
+        }
+        showToast('フォルダ検証に失敗しました', 'error');
+    }
+}
+
+function updateScheduleStatusDisplay(enabled) {
+    if (elements.scheduleStatus) {
+        elements.scheduleStatus.textContent = enabled ? '有効' : '無効';
+        elements.scheduleStatus.className = enabled ? 'schedule-status enabled' : 'schedule-status disabled';
+    }
+}
+
+function populateScheduleForm(settings) {
+    if (!settings) return;
+
+    if (elements.scheduleFolderUrl) elements.scheduleFolderUrl.value = settings.folder_url || '';
+    if (elements.scheduleMaxFiles) elements.scheduleMaxFiles.value = settings.max_files_per_run || 50;
+    if (elements.scheduleTitleTemplate) elements.scheduleTitleTemplate.value = settings.title_template || '{filename}';
+    if (elements.scheduleDescriptionTemplate) elements.scheduleDescriptionTemplate.value = settings.description_template || '';
+    if (elements.schedulePrivacy) elements.schedulePrivacy.value = settings.default_privacy || 'private';
+    if (elements.scheduleRecursive) elements.scheduleRecursive.checked = settings.recursive ?? true;
+    if (elements.scheduleSkipDuplicates) elements.scheduleSkipDuplicates.checked = settings.skip_duplicates ?? true;
+    if (elements.scheduleIncludeMd5) elements.scheduleIncludeMd5.checked = settings.include_md5_hash ?? true;
+    if (elements.scheduleEnabled) elements.scheduleEnabled.checked = settings.is_enabled ?? false;
+    updateScheduleStatusDisplay(settings.is_enabled);
+    if (elements.deleteScheduleBtn) elements.deleteScheduleBtn.style.display = 'inline-block';
 }
 
 async function cancelJob(jobId) {
@@ -515,14 +642,7 @@ async function refreshQueueList() {
         elements.queueList.appendChild(item);
     });
 
-    // Update worker buttons
-    if (data.status?.is_processing) {
-        if (elements.startWorkerBtn) elements.startWorkerBtn.disabled = true;
-        if (elements.stopWorkerBtn) elements.stopWorkerBtn.disabled = false;
-    } else {
-        if (elements.startWorkerBtn) elements.startWorkerBtn.disabled = false;
-        if (elements.stopWorkerBtn) elements.stopWorkerBtn.disabled = true;
-    }
+    // Update progress section
     // 進捗状況セクションの更新を追加
     const activeJobs = data.jobs.filter(j =>
         j.status === 'downloading' || j.status === 'uploading'
@@ -608,21 +728,19 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addToQueueBtn.addEventListener('click', addToQueue);
     }
 
-    // Worker controls
-    if (elements.startWorkerBtn) {
-        elements.startWorkerBtn.addEventListener('click', async () => {
-            if (await startWorker()) {
-                elements.startWorkerBtn.disabled = true;
-                elements.stopWorkerBtn.disabled = false;
-            }
-        });
+    // Schedule Settings
+    if (elements.saveScheduleBtn) {
+        elements.saveScheduleBtn.addEventListener('click', saveScheduleSettings);
     }
-    if (elements.stopWorkerBtn) {
-        elements.stopWorkerBtn.addEventListener('click', async () => {
-            if (await stopWorker()) {
-                elements.startWorkerBtn.disabled = false;
-                elements.stopWorkerBtn.disabled = true;
-            }
+    if (elements.deleteScheduleBtn) {
+        elements.deleteScheduleBtn.addEventListener('click', deleteScheduleSettings);
+    }
+    if (elements.validateFolderBtn) {
+        elements.validateFolderBtn.addEventListener('click', validateFolderUrl);
+    }
+    if (elements.scheduleEnabled) {
+        elements.scheduleEnabled.addEventListener('change', (e) => {
+            updateScheduleStatusDisplay(e.target.checked);
         });
     }
 
@@ -640,9 +758,14 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.selectCurrentFolderBtn.addEventListener('click', selectCurrentFolder);
     }
 
-    // Initial queue refresh
+    // Initial data load
     refreshQueueList();
     updateQuotaStatus();
+
+    // Load schedule settings
+    loadScheduleSettings().then(settings => {
+        if (settings) populateScheduleForm(settings);
+    });
 
     // Periodic queue refresh
     setInterval(() => {

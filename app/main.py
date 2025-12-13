@@ -15,6 +15,7 @@ from app.database import close_db, init_db
 from app.drive.routes import router as drive_router
 from app.queue.routes import router as queue_router
 from app.queue.worker import get_queue_worker
+from app.settings.routes import router as settings_router
 from app.youtube.routes import router as youtube_router
 
 # Configure logging
@@ -45,6 +46,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down application...")
+    
+    # Stop worker if running (for local development only)
+    # In production, worker runs as separate Heroku dyno
     worker = get_queue_worker()
     if worker.is_running():
         await worker.stop()
@@ -89,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(drive_router)
     app.include_router(youtube_router)
     app.include_router(queue_router)
+    app.include_router(settings_router)
 
     # Mount static files
     static_dir = Path(__file__).parent / "static"

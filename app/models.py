@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -153,3 +153,80 @@ class OAuthToken(Base):
         """Return string representation."""
         return f"<OAuthToken(id={self.id}, user_id={self.user_id})>"
 
+
+class ScheduleSettings(Base):
+    """User's schedule settings for Heroku Scheduler.
+    
+    Stores per-user configuration for automated folder uploads.
+    Replaces environment variables: TARGET_USER_ID, TARGET_FOLDER_ID, MAX_FILES_PER_RUN.
+    
+    Multiple users can have enabled settings; scheduler processes all sequentially.
+    """
+
+    __tablename__ = "schedule_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True, index=True
+    )  # Links to OAuth token's user_id
+    
+    # Folder configuration
+    folder_url: Mapped[str] = mapped_column(
+        String(500), nullable=False
+    )  # Full Google Drive folder URL
+    folder_id: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # Extracted folder ID from URL
+    
+    # Processing limits
+    max_files_per_run: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=50
+    )
+    
+    # Video metadata templates
+    title_template: Mapped[str] = mapped_column(
+        String(200), nullable=False, default="{filename}"
+    )
+    description_template: Mapped[str] = mapped_column(
+        Text, nullable=False, default="Uploaded from {folder_path}"
+    )
+    default_privacy: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="private"
+    )  # private, unlisted, public
+    
+    # Processing options
+    recursive: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )  # Include subfolders
+    skip_duplicates: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )  # Skip already uploaded files
+    include_md5_hash: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )  # Add MD5 to description
+    
+    # Scheduling control
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )  # Enable/disable this schedule
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return (
+            f"<ScheduleSettings(id={self.id}, "
+            f"user_id={self.user_id}, "
+            f"enabled={self.is_enabled})>"
+        )
