@@ -142,11 +142,24 @@ async function stopWorker() {
     }
 }
 
+async function cancelJob(jobId) {
+    if (!confirm('このジョブをキャンセルしてもよろしいですか？')) return;
+
+    try {
+        const response = await fetch(`/queue/jobs/${jobId}/cancel`, { method: 'POST' });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to cancel job');
+        }
+        showToast('ジョブをキャンセルしました', 'success');
+        refreshQueueList();
+    } catch (error) {
+        showToast(`キャンセル失敗: ${error.message}`, 'error');
     }
 }
 
 async function deleteJob(jobId) {
-    if (!confirm('このジョブを削除してもよろしいですか？')) return;
+    if (!confirm('このジョブを削除してもよろしいですか？\n\n注意: アップロード履歴からも完全に削除されます。')) return;
 
     try {
         const response = await fetch(`/queue/jobs/${jobId}`, { method: 'DELETE' });
@@ -481,9 +494,14 @@ async function refreshQueueList() {
             ? `<div class="progress-bar"><div class="progress-fill" style="width: ${job.progress}%"></div></div>`
             : '';
 
-        const deleteBtn = (job.status !== 'downloading' && job.status !== 'uploading')
-            ? `<button class="btn-icon btn-delete" onclick="deleteJob('${job.id}')" title="削除">🗑️</button>`
-            : '';
+        let actionBtn = '';
+        if (job.status === 'pending' || job.status === 'downloading') {
+            actionBtn = `<button class="btn-icon btn-cancel" onclick="cancelJob('${job.id}')" title="キャンセル">⛔</button>`;
+        } else if (job.status !== 'uploading') {
+            // Completed, failed, cancelled can be deleted
+            // Uploading cannot be cancelled (safely) or deleted yet in this simple UI
+            actionBtn = `<button class="btn-icon btn-delete" onclick="deleteJob('${job.id}')" title="削除">🗑️</button>`;
+        }
 
         item.innerHTML = `
             <div class="job-info">
@@ -491,7 +509,7 @@ async function refreshQueueList() {
                 <span class="job-status">${job.status} ${job.message ? '- ' + job.message : ''}</span>
             </div>
             ${progressBar}
-            ${deleteBtn}
+            ${actionBtn}
         `;
 
         elements.queueList.appendChild(item);
