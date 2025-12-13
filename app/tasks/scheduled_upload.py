@@ -70,15 +70,15 @@ async def process_user_schedule(settings: "ScheduleSettings") -> int:
     """
     user_id = settings.user_id
     folder_id = settings.folder_id
-    
+
     logger.info("Processing schedule for user: %s", user_id)
     logger.info("  Folder ID: %s", folder_id)
     logger.info("  Max files: %d", settings.max_files_per_run)
-    
+
     # Get user credentials
     oauth_service = get_oauth_service()
     credentials = await oauth_service.get_credentials(user_id)
-    
+
     if not credentials:
         logger.error(
             "User '%s' not authenticated. "
@@ -86,13 +86,13 @@ async def process_user_schedule(settings: "ScheduleSettings") -> int:
             user_id,
         )
         return 0
-    
+
     # Create services
     drive_service = DriveService(credentials=credentials)
-    
+
     async with get_db_context() as db:
         folder_service = FolderUploadService(drive_service, db)
-        
+
         # Build settings from database configuration
         upload_settings = FolderUploadSettings(
             title_template=settings.title_template,
@@ -100,7 +100,7 @@ async def process_user_schedule(settings: "ScheduleSettings") -> int:
             default_privacy=settings.default_privacy,
             include_md5_hash=settings.include_md5_hash,
         )
-        
+
         # Process folder
         logger.info("Scanning folder %s...", folder_id)
         result = await folder_service.process_folder(
@@ -111,14 +111,14 @@ async def process_user_schedule(settings: "ScheduleSettings") -> int:
             max_files=settings.max_files_per_run,
             skip_duplicates=settings.skip_duplicates,
         )
-        
+
         logger.info(
             "User %s: Added %d jobs, Skipped %d files",
             user_id,
             len(result.added_jobs),
             len(result.skipped_files),
         )
-        
+
         # Log skipped files for debugging
         for skipped in result.skipped_files[:5]:  # Limit to first 5
             logger.debug(
@@ -126,7 +126,7 @@ async def process_user_schedule(settings: "ScheduleSettings") -> int:
                 skipped.file_name,
                 skipped.reason,
             )
-        
+
         return len(result.added_jobs)
 
 
@@ -141,25 +141,25 @@ async def run_scheduled_upload() -> None:
     logger.info("=" * 60)
     logger.info("Starting scheduled upload...")
     logger.info("=" * 60)
-    
+
     await init_db()
-    
+
     try:
         # Check YouTube quota first to avoid unnecessary Drive API calls
         if not await check_youtube_quota():
             return
-        
+
         # Get all enabled schedule settings
         async with get_db_context() as db:
             repo = ScheduleSettingsRepository(db)
             enabled_settings = await repo.get_all_enabled()
-        
+
         if not enabled_settings:
             logger.warning("No enabled schedule settings found. Exiting.")
             return
-        
+
         logger.info("Found %d enabled schedule setting(s)", len(enabled_settings))
-        
+
         # Process each enabled user's schedule
         total_jobs_added = 0
         for settings in enabled_settings:
@@ -172,7 +172,7 @@ async def run_scheduled_upload() -> None:
                     settings.user_id,
                 )
                 # Continue with other users
-        
+
         # Process queue if jobs were added
         if total_jobs_added > 0:
             logger.info("Starting batch processing for %d jobs...", total_jobs_added)
@@ -181,10 +181,10 @@ async def run_scheduled_upload() -> None:
             logger.info("Batch processing complete. Processed: %d", processed)
         else:
             logger.info("No new jobs to process.")
-    
+
     except Exception:
         logger.exception("Scheduled upload failed")
-    
+
     finally:
         await close_db()
         logger.info("=" * 60)

@@ -8,21 +8,17 @@ and testing.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING
 
 from fastapi import Cookie, Depends, HTTPException, status
 from google.oauth2.credentials import Credentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
 from app.auth.oauth import OAuthService
-
-    
+from app.database import get_db
 from app.drive.services import DriveService
 from app.queue.repositories import QueueRepository
 from app.queue.services import QueueService
 from app.youtube.service import YouTubeService
-
 
 # =============================================================================
 # Credential Dependencies

@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down application...")
-    
+
     # Stop worker if running (for local development only)
     # In production, worker runs as separate Heroku dyno
     worker = get_queue_worker()

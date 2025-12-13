@@ -55,20 +55,20 @@ class ScheduleSettingsBase(BaseModel):
         """Validate and normalize Google Drive folder URL."""
         if not v or not v.strip():
             raise ValueError("Folder URL cannot be empty")
-        
+
         # Normalize URL
         v = v.strip()
-        
+
         # Check for valid Google Drive folder URL patterns
         patterns = [
             r"https?://drive\.google\.com/drive/(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)",
             r"https?://drive\.google\.com/drive/folders/([a-zA-Z0-9_-]+)",
         ]
-        
+
         for pattern in patterns:
             if re.search(pattern, v):
                 return v
-        
+
         raise ValueError(
             "Invalid Google Drive folder URL. "
             "Expected format: https://drive.google.com/drive/folders/{folder_id}"
@@ -160,10 +160,10 @@ def extract_folder_id(url: str) -> str | None:
         r"https?://drive\.google\.com/drive/(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)",
         r"https?://drive\.google\.com/drive/folders/([a-zA-Z0-9_-]+)",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
             return match.group(1)
-    
+
     return None

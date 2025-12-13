@@ -90,7 +90,7 @@ class ScheduleSettingsRepository:
         for key, value in kwargs.items():
             if value is not None and hasattr(settings, key):
                 setattr(settings, key, value)
-        
+
         await self._db.flush()
         await self._db.refresh(settings)
         return settings

@@ -45,7 +45,7 @@ async def get_schedule_settings(
     settings = await repo.get_by_user_id(user_id)
     if not settings:
         return None
-    
+
     return ScheduleSettingsResponse(
         id=settings.id,
         user_id=settings.user_id,
@@ -85,10 +85,10 @@ async def save_schedule_settings(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Could not extract folder ID from URL",
         )
-    
+
     # Check if user already has settings
     existing = await repo.get_by_user_id(user_id)
-    
+
     if existing:
         # Update existing settings
         settings = await repo.update(
@@ -121,7 +121,7 @@ async def save_schedule_settings(
             is_enabled=request.is_enabled,
         )
         logger.info("Created schedule settings for user: %s", user_id)
-    
+
     return ScheduleSettingsResponse(
         id=settings.id,
         user_id=settings.user_id,
@@ -160,9 +160,9 @@ async def update_schedule_settings(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule settings not found. Use POST to create.",
         )
-    
+
     update_data = request.model_dump(exclude_unset=True)
-    
+
     # Extract folder ID if URL is being updated
     if "folder_url" in update_data:
         folder_id = extract_folder_id(update_data["folder_url"])
@@ -172,10 +172,10 @@ async def update_schedule_settings(
                 detail="Could not extract folder ID from URL",
             )
         update_data["folder_id"] = folder_id
-    
+
     settings = await repo.update(existing, **update_data)
     logger.info("Patched schedule settings for user: %s", user_id)
-    
+
     return ScheduleSettingsResponse(
         id=settings.id,
         user_id=settings.user_id,
@@ -210,10 +210,10 @@ async def delete_schedule_settings(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule settings not found",
         )
-    
+
     await repo.delete(existing)
     logger.info("Deleted schedule settings for user: %s", user_id)
-    
+
     return {"message": "Schedule settings deleted successfully"}
 
 
@@ -237,25 +237,25 @@ async def validate_folder(
             valid=False,
             error="Invalid Google Drive folder URL format",
         )
-    
+
     # Try to access the folder via Drive API
     try:
         from app.auth.oauth import get_oauth_service
         from app.drive.services import DriveService
-        
+
         oauth_service = get_oauth_service()
         credentials = await oauth_service.get_credentials(user_id)
-        
+
         if not credentials:
             return FolderValidationResponse(
                 valid=False,
                 folder_id=folder_id,
                 error="Google account not authenticated",
             )
-        
+
         drive_service = DriveService(credentials=credentials)
         folder_info = await drive_service.get_folder_info(folder_id)
-        
+
         return FolderValidationResponse(
             valid=True,
             folder_id=folder_id,

@@ -169,7 +169,7 @@ class ScheduleSettings(Base):
     user_id: Mapped[str] = mapped_column(
         String(100), nullable=False, unique=True, index=True
     )  # Links to OAuth token's user_id
-    
+
     # Folder configuration
     folder_url: Mapped[str] = mapped_column(
         String(500), nullable=False
@@ -177,12 +177,12 @@ class ScheduleSettings(Base):
     folder_id: Mapped[str] = mapped_column(
         String(100), nullable=False
     )  # Extracted folder ID from URL
-    
+
     # Processing limits
     max_files_per_run: Mapped[int] = mapped_column(
         Integer, nullable=False, default=50
     )
-    
+
     # Video metadata templates
     title_template: Mapped[str] = mapped_column(
         String(200), nullable=False, default="{filename}"
@@ -193,7 +193,7 @@ class ScheduleSettings(Base):
     default_privacy: Mapped[str] = mapped_column(
         String(20), nullable=False, default="private"
     )  # private, unlisted, public
-    
+
     # Processing options
     recursive: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
@@ -204,12 +204,12 @@ class ScheduleSettings(Base):
     include_md5_hash: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )  # Add MD5 to description
-    
+
     # Scheduling control
     is_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True
     )  # Enable/disable this schedule
-    
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
